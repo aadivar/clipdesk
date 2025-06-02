@@ -1,0 +1,81 @@
+{
+  "name": "clipdesk",
+  "version": "0.1.0",
+  "description": "A beautiful, local-first clipboard manager for Mac, Windows, and Linux inspired by Things app design and pasteapp.io functionality.",
+  "main": "dist/main/src/main/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run build:renderer && npm run build:main && electron-builder",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p tsconfig.main.json",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "format": "prettier --write src/**/*.{ts,tsx,json}",
+    "test": "vitest"
+  },
+  "keywords": [
+    "clipboard",
+    "manager",
+    "productivity",
+    "electron",
+    "local-first",
+    "cross-platform"
+  ],
+  "author": "ClipDesk Team",
+  "license": "Commercial",
+  "homepage": "https://clipdesk.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clipdesk/clipdesk.git"
+  },
+  "build": {
+    "appId": "app.clipdesk.desktop",
+    "productName": "ClipDesk",
+    "directories": {
+      "output": "dist/installer"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png",
+      "category": "Utility"
+    }
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@types/styled-components": "^5.1.34",
+    "@vitejs/plugin-react": "^4.0.0",
+    "concurrently": "^8.2.2",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.8.2",
+    "better-sqlite3": "^11.10.0",
+    "prisma": "^6.8.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "styled-components": "^6.1.18"
+  }
+}

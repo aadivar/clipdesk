@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ClipboardItem {
+  id          String   @id @default(cuid())
+  contentHash String   @unique // For deduplication
+  contentType String   // 'text', 'image', 'file', 'link', 'color'
+  content     String   // Text representation or file path
+  rawContent  Bytes?   // Binary data for images/files
+  metadata    String?  // JSON string for additional data
+  sourceApp   String?  // App that created this clipboard item
+  createdAt   DateTime @default(now())
+  accessedAt  DateTime @default(now())
+  accessCount Int      @default(1)
+  isFavorite  Boolean  @default(false)
+  isDeleted   Boolean  @default(false)
+
+  // Relations
+  tags ItemTag[]
+
+  @@map("clipboard_items")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String?  // Hex color for tag
+  createdAt DateTime @default(now())
+
+  // Relations
+  items ItemTag[]
+
+  @@map("tags")
+}
+
+model ItemTag {
+  itemId String
+  tagId  String
+
+  // Relations
+  item ClipboardItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag  Tag           @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+  @@map("item_tags")
+}
+
+model Snippet {
+  id        String   @id @default(cuid())
+  name      String
+  content   String
+  shortcut  String?  @unique // Keyboard shortcut for quick access
+  variables String?  // JSON string for template variables
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("snippets")
+}
+
+model Setting {
+  key       String   @id
+  value     String   // JSON string for complex values
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("settings")
+}
+
+model License {
+  id           String    @id @default(cuid())
+  licenseKey   String    @unique
+  purchaseDate DateTime
+  expiresAt    DateTime?
+  isValid      Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  @@map("license")
+}
