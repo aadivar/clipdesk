@@ -214,15 +214,17 @@ class ClipDeskApp {
   private createWindow(): void {
     // Create the browser window with Things-inspired design
     this.mainWindow = new BrowserWindow({
-      width: 900,
-      height: 700,
-      minWidth: 600,
-      minHeight: 500,
-      titleBarStyle: 'hidden', // Completely hide title bar on macOS
+      width: 1000,
+      height: 720,
+      minWidth: 800,
+      minHeight: 600,
+      titleBarStyle: 'hiddenInset', // Better macOS integration
       trafficLightPosition: { x: 20, y: 20 },
       backgroundColor: '#ffffff',
-      title: '', // Remove title to clean up the title bar
-      icon: isDev 
+      title: 'ClipDesk',
+      vibrancy: 'sidebar', // Add subtle transparency effect on macOS
+      visualEffectState: 'active',
+      icon: isDev
         ? path.join(__dirname, '../../assets/icon.png')
         : path.join(app.getAppPath(), 'assets/icon.png'),
       webPreferences: {
@@ -233,6 +235,7 @@ class ClipDeskApp {
           ? path.resolve(__dirname, '../preload/index.js')
           : path.join(app.getAppPath(), 'dist/main/src/preload/index.js'),
       },
+      show: false, // Don't show until ready
     })
 
     // Load the app using the proven custom protocol solution

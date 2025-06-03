@@ -1,44 +1,169 @@
 import React, { useState, useEffect, createContext, useContext } from 'react'
 import styled, { ThemeProvider, createGlobalStyle } from 'styled-components'
 
-// Theme definitions
+// Things-inspired theme definitions
 const lightTheme = {
   colors: {
+    // Main backgrounds
     background: '#ffffff',
-    sidebarBg: '#f8f9fa',
-    sidebarBorder: '#e1e5e9',
-    text: '#2c3e50',
-    textSecondary: '#8e8e93',
-    accent: '#007AFF',
-    border: '#e1e5e9',
+    sidebarBg: '#f7f7f7',
+    sidebarBorder: '#e8e8e8',
+
+    // Text colors
+    text: '#1d1d1f',
+    textSecondary: '#86868b',
+    textTertiary: '#c7c7cc',
+
+    // Accent colors
+    accent: '#007aff',
+    accentHover: '#0056cc',
+    accentLight: '#e3f2fd',
+
+    // Borders and dividers
+    border: '#e8e8e8',
+    borderLight: '#f2f2f7',
+
+    // Item backgrounds
     itemBg: '#ffffff',
     itemHover: '#f8f9fa',
-    searchBg: '#f8f9fa',
-    searchBorder: '#e1e5e9',
+    itemSelected: '#e3f2fd',
+
+    // Search and input
+    searchBg: '#f2f2f7',
+    searchBorder: '#e8e8e8',
+    searchFocus: '#007aff',
+
+    // Shadows and overlays
+    shadow: 'rgba(0, 0, 0, 0.04)',
+    shadowHover: 'rgba(0, 0, 0, 0.08)',
+    overlay: 'rgba(0, 0, 0, 0.3)',
+  },
+  typography: {
+    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif',
+    fontFamilyMono: '"SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace',
+  },
+  spacing: {
+    xs: '4px',
+    sm: '8px',
+    md: '12px',
+    lg: '16px',
+    xl: '20px',
+    xxl: '24px',
+    xxxl: '32px',
+  },
+  borderRadius: {
+    sm: '6px',
+    md: '8px',
+    lg: '12px',
+    xl: '16px',
   }
 }
 
 const darkTheme = {
   colors: {
+    // Main backgrounds
     background: '#1c1c1e',
     sidebarBg: '#2c2c2e',
-    sidebarBorder: '#3a3a3c',
+    sidebarBorder: '#38383a',
+
+    // Text colors
     text: '#ffffff',
-    textSecondary: '#8e8e93',
+    textSecondary: '#98989d',
+    textTertiary: '#636366',
+
+    // Accent colors
     accent: '#0a84ff',
-    border: '#3a3a3c',
+    accentHover: '#409cff',
+    accentLight: 'rgba(10, 132, 255, 0.15)',
+
+    // Borders and dividers
+    border: '#38383a',
+    borderLight: '#48484a',
+
+    // Item backgrounds
     itemBg: '#2c2c2e',
     itemHover: '#3a3a3c',
+    itemSelected: 'rgba(10, 132, 255, 0.15)',
+
+    // Search and input
     searchBg: '#3a3a3c',
     searchBorder: '#48484a',
+    searchFocus: '#0a84ff',
+
+    // Shadows and overlays
+    shadow: 'rgba(0, 0, 0, 0.3)',
+    shadowHover: 'rgba(0, 0, 0, 0.4)',
+    overlay: 'rgba(0, 0, 0, 0.6)',
+  },
+  typography: {
+    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif',
+    fontFamilyMono: '"SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace',
+  },
+  spacing: {
+    xs: '4px',
+    sm: '8px',
+    md: '12px',
+    lg: '16px',
+    xl: '20px',
+    xxl: '24px',
+    xxxl: '32px',
+  },
+  borderRadius: {
+    sm: '6px',
+    md: '8px',
+    lg: '12px',
+    xl: '16px',
   }
 }
 
 const GlobalStyle = createGlobalStyle`
+  * {
+    box-sizing: border-box;
+  }
+
   body {
+    margin: 0;
+    padding: 0;
     background-color: ${props => props.theme.colors.background};
     color: ${props => props.theme.colors.text};
-    transition: background-color 0.3s ease, color 0.3s ease;
+    font-family: ${props => props.theme.typography.fontFamily};
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Scrollbar styling for webkit browsers */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: ${props => props.theme.colors.textTertiary};
+    border-radius: 4px;
+    opacity: 0.5;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: ${props => props.theme.colors.textSecondary};
+    opacity: 0.8;
+  }
+
+  /* Focus styles */
+  *:focus {
+    outline: none;
+  }
+
+  /* Selection styles */
+  ::selection {
+    background: ${props => props.theme.colors.accentLight};
+    color: ${props => props.theme.colors.text};
   }
 `
 
@@ -57,7 +182,8 @@ const AppContainer = styled.div`
   height: 100vh;
   width: 100vw;
   background-color: ${props => props.theme.colors.background};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: ${props => props.theme.typography.fontFamily};
+  overflow: hidden;
 `
 
 const Sidebar = styled.div`
@@ -67,134 +193,213 @@ const Sidebar = styled.div`
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+
+  /* Subtle inner shadow for depth */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(
+      to bottom,
+      ${props => props.theme.colors.shadow},
+      transparent 50%,
+      ${props => props.theme.colors.shadow}
+    );
+    pointer-events: none;
+  }
 `
 
 const SidebarHeader = styled.div`
-  padding: 30px 24px 16px;
+  padding: ${props => props.theme.spacing.xxxl} ${props => props.theme.spacing.xxl} ${props => props.theme.spacing.lg};
   border-bottom: 1px solid ${props => props.theme.colors.sidebarBorder};
+  background-color: ${props => props.theme.colors.sidebarBg};
   -webkit-app-region: drag; /* Make this area draggable on macOS */
-  
+
   h1 {
-    font-size: 22px;
-    font-weight: 600;
+    font-size: 20px;
+    font-weight: 700;
     color: ${props => props.theme.colors.text};
     margin: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: ${props => props.theme.spacing.sm};
+    letter-spacing: -0.01em;
     -webkit-app-region: no-drag; /* Prevent text selection conflicts */
+
+    /* Emoji styling */
+    .emoji {
+      font-size: 18px;
+      filter: drop-shadow(0 1px 2px ${props => props.theme.colors.shadow});
+    }
   }
 `
 
 const SidebarContent = styled.div`
   flex: 1;
-  padding: 16px 0;
+  padding: ${props => props.theme.spacing.lg} 0;
   overflow-y: auto;
   -webkit-app-region: no-drag; /* Allow sidebar interactions */
+
+  /* Custom scrollbar for sidebar */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    margin: ${props => props.theme.spacing.sm} 0;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: ${props => props.theme.colors.textTertiary};
+    border-radius: 3px;
+    opacity: 0.3;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    opacity: 0.6;
+  }
 `
 
 const SidebarSection = styled.div`
-  margin-bottom: 24px;
-  
+  margin-bottom: ${props => props.theme.spacing.xxl};
+
   &:last-child {
     margin-bottom: 0;
   }
 `
 
 const SidebarItem = styled.div<{ isActive?: boolean }>`
-  padding: 10px 24px;
+  padding: ${props => props.theme.spacing.md} ${props => props.theme.spacing.xxl};
+  margin: 0 ${props => props.theme.spacing.md};
   cursor: pointer;
   color: ${props => props.isActive ? props.theme.colors.accent : props.theme.colors.text};
-  background-color: ${props => props.isActive ? 
-    (props.theme === lightTheme ? '#e3f2fd' : 'rgba(10, 132, 255, 0.15)') : 'transparent'};
+  background-color: ${props => props.isActive ? props.theme.colors.itemSelected : 'transparent'};
   font-weight: ${props => props.isActive ? '600' : '500'};
-  font-size: 15px;
-  transition: all 0.2s ease;
+  font-size: 14px;
+  line-height: 1.4;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
-  gap: 10px;
-  border-radius: 0;
-  margin: 0 12px;
-  border-radius: 8px;
-  
+  gap: ${props => props.theme.spacing.md};
+  border-radius: ${props => props.theme.borderRadius.md};
+  position: relative;
+
   &:hover {
-    background-color: ${props => props.isActive ? 
-      (props.theme === lightTheme ? '#e3f2fd' : 'rgba(10, 132, 255, 0.15)') : 
+    background-color: ${props => props.isActive ?
+      props.theme.colors.itemSelected :
       props.theme.colors.itemHover};
+    transform: translateX(1px);
   }
-  
+
+  /* Active indicator */
+  ${props => props.isActive && `
+    &::before {
+      content: '';
+      position: absolute;
+      left: -${props.theme.spacing.md};
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 20px;
+      background: ${props.theme.colors.accent};
+      border-radius: 0 2px 2px 0;
+    }
+  `}
+
   .icon {
     font-size: 16px;
     width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+    opacity: ${props => props.isActive ? '1' : '0.8'};
   }
-  
+
   .label {
     flex: 1;
     font-weight: inherit;
+    letter-spacing: -0.01em;
   }
-  
+
   .count {
-    font-size: 13px;
+    font-size: 12px;
     color: ${props => props.theme.colors.textSecondary};
-    font-weight: 500;
+    font-weight: 600;
+    background: ${props => props.theme.colors.borderLight};
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+    line-height: 1.2;
   }
 `
 
 const SidebarFooter = styled.div`
-  padding: 16px 24px;
+  padding: ${props => props.theme.spacing.lg} ${props => props.theme.spacing.xxl};
   border-top: 1px solid ${props => props.theme.colors.sidebarBorder};
   background-color: ${props => props.theme.colors.sidebarBg};
   -webkit-app-region: no-drag; /* Allow footer interactions */
+  display: flex;
+  flex-direction: column;
+  gap: ${props => props.theme.spacing.xs};
 `
 
-const ThemeToggle = styled.button`
+const FooterButton = styled.button`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: ${props => props.theme.spacing.md};
   width: 100%;
-  padding: 10px 12px;
+  padding: ${props => props.theme.spacing.md};
   background: none;
   border: none;
   color: ${props => props.theme.colors.text};
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  margin-bottom: 8px;
-  
+  border-radius: ${props => props.theme.borderRadius.md};
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+
   &:hover {
     background-color: ${props => props.theme.colors.itemHover};
+    transform: translateX(1px);
   }
-  
+
+  &:active {
+    transform: translateX(0);
+    background-color: ${props => props.theme.colors.itemSelected};
+  }
+
   .icon {
     font-size: 16px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0.8;
+  }
+
+  .label {
+    flex: 1;
+    letter-spacing: -0.01em;
   }
 `
 
-const SettingsButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 12px;
-  background: none;
-  border: none;
-  color: ${props => props.theme.colors.text};
-  font-size: 14px;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  
-  &:hover {
-    background-color: ${props => props.theme.colors.itemHover};
-  }
-  
-  .icon {
-    font-size: 16px;
-  }
+const ThemeToggle = styled(FooterButton)`
+  /* Inherits all styles from FooterButton */
+`
+
+const SettingsButton = styled(FooterButton)`
+  /* Inherits all styles from FooterButton */
 `
 
 const MainContent = styled.div`
@@ -203,44 +408,102 @@ const MainContent = styled.div`
   flex-direction: column;
   overflow: hidden;
   background-color: ${props => props.theme.colors.background};
+  position: relative;
 `
 
 const SearchBar = styled.div`
-  padding: 30px 24px 20px;
+  padding: ${props => props.theme.spacing.xxxl} ${props => props.theme.spacing.xxl} ${props => props.theme.spacing.xl};
   border-bottom: 1px solid ${props => props.theme.colors.border};
   background-color: ${props => props.theme.colors.background};
   -webkit-app-region: drag; /* Make this area draggable on macOS */
+  position: relative;
+  z-index: 10;
+
+  /* Subtle shadow for depth */
+  box-shadow: 0 1px 0 0 ${props => props.theme.colors.shadow};
+`
+
+const SearchInputContainer = styled.div`
+  position: relative;
+  max-width: 600px;
+
+  /* Search icon */
+  &::before {
+    content: '🔍';
+    position: absolute;
+    left: ${props => props.theme.spacing.lg};
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 1;
+  }
 `
 
 const SearchInput = styled.input`
   width: 100%;
-  padding: 12px 16px;
+  padding: ${props => props.theme.spacing.lg} ${props => props.theme.spacing.lg} ${props => props.theme.spacing.lg} 40px;
   border: 1px solid ${props => props.theme.colors.searchBorder};
-  border-radius: 10px;
+  border-radius: ${props => props.theme.borderRadius.lg};
   font-size: 15px;
+  font-weight: 400;
   background-color: ${props => props.theme.colors.searchBg};
   color: ${props => props.theme.colors.text};
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   -webkit-app-region: no-drag; /* Allow input interaction */
-  
+  font-family: ${props => props.theme.typography.fontFamily};
+  line-height: 1.4;
+
   &:focus {
     outline: none;
-    border-color: ${props => props.theme.colors.accent};
+    border-color: ${props => props.theme.colors.searchFocus};
     background-color: ${props => props.theme.colors.background};
-    box-shadow: 0 0 0 3px ${props => props.theme.colors.accent}15;
+    box-shadow: 0 0 0 3px ${props => props.theme.colors.accentLight};
+    transform: translateY(-1px);
   }
-  
+
   &::placeholder {
     color: ${props => props.theme.colors.textSecondary};
+    font-weight: 400;
+  }
+
+  /* Remove autofill styling */
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px ${props => props.theme.colors.searchBg} inset;
+    -webkit-text-fill-color: ${props => props.theme.colors.text};
+    transition: background-color 5000s ease-in-out 0s;
   }
 `
 
 const ContentArea = styled.div`
   flex: 1;
-  padding: 20px 24px;
+  padding: ${props => props.theme.spacing.xl} ${props => props.theme.spacing.xxl};
   overflow-y: auto;
   background-color: ${props => props.theme.colors.background};
   -webkit-app-region: no-drag; /* Allow content interactions */
+
+  /* Custom scrollbar */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    margin: ${props => props.theme.spacing.sm} 0;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: ${props => props.theme.colors.textTertiary};
+    border-radius: 4px;
+    opacity: 0.4;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    opacity: 0.7;
+  }
 `
 
 const WelcomeMessage = styled.div`
@@ -251,128 +514,210 @@ const WelcomeMessage = styled.div`
   height: 100%;
   text-align: center;
   color: ${props => props.theme.colors.textSecondary};
-  
+  padding: ${props => props.theme.spacing.xxxl};
+
   h2 {
-    font-size: 24px;
-    font-weight: 300;
-    margin-bottom: 12px;
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: ${props => props.theme.spacing.lg};
     color: ${props => props.theme.colors.text};
+    letter-spacing: -0.02em;
+    line-height: 1.2;
   }
-  
+
   p {
     font-size: 16px;
-    line-height: 1.5;
-    max-width: 400px;
+    line-height: 1.6;
+    max-width: 480px;
+    font-weight: 400;
+    opacity: 0.8;
+  }
+
+  /* Add a subtle icon or illustration */
+  &::before {
+    content: '📋';
+    font-size: 48px;
+    margin-bottom: ${props => props.theme.spacing.xl};
+    opacity: 0.6;
+    filter: grayscale(0.3);
   }
 `
 
 const ClipboardItem = styled.div`
-  padding: 16px 20px;
-  margin-bottom: 12px;
+  padding: ${props => props.theme.spacing.xl};
+  margin-bottom: ${props => props.theme.spacing.lg};
   background-color: ${props => props.theme.colors.itemBg};
   border: 1px solid ${props => props.theme.colors.border};
-  border-radius: 12px;
+  border-radius: ${props => props.theme.borderRadius.lg};
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  
+  box-shadow: 0 1px 3px ${props => props.theme.colors.shadow};
+
   &:hover {
     border-color: ${props => props.theme.colors.accent};
-    box-shadow: 0 4px 12px ${props => props.theme.colors.accent}10;
-    transform: translateY(-1px);
-    
+    box-shadow:
+      0 4px 20px ${props => props.theme.colors.shadowHover},
+      0 0 0 1px ${props => props.theme.colors.accent}20;
+    transform: translateY(-2px);
+
     .favorite-btn {
-      opacity: 0.8;
+      opacity: 1;
+    }
+
+    .actions {
+      opacity: 1;
+      transform: translateX(0);
     }
   }
-  
+
+  &:active {
+    transform: translateY(-1px);
+    transition: transform 0.1s ease;
+  }
+
   .preview {
-    margin-bottom: 12px;
-    border-radius: 8px;
+    margin-bottom: ${props => props.theme.spacing.md};
+    border-radius: ${props => props.theme.borderRadius.md};
     overflow: hidden;
   }
-  
+
   .content {
     font-size: 15px;
     color: ${props => props.theme.colors.text};
-    margin-bottom: 6px;
+    margin-bottom: ${props => props.theme.spacing.sm};
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
   }
-  
+
   .meta {
     font-size: 13px;
     color: ${props => props.theme.colors.textSecondary};
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+    gap: ${props => props.theme.spacing.md};
+
+    .type-badge {
+      background: ${props => props.theme.colors.borderLight};
+      color: ${props => props.theme.colors.textSecondary};
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .source-app {
+      opacity: 0.7;
+    }
+
+    .timestamp {
+      margin-left: auto;
+      opacity: 0.6;
+    }
   }
 `
 
 const FavoriteButton = styled.button`
   position: absolute;
-  top: 12px;
-  right: 12px;
-  background: none;
-  border: none;
+  top: ${props => props.theme.spacing.lg};
+  right: ${props => props.theme.spacing.lg};
+  background: ${props => props.theme.colors.itemBg};
+  border: 1px solid ${props => props.theme.colors.border};
   cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
+  padding: ${props => props.theme.spacing.sm};
+  border-radius: ${props => props.theme.borderRadius.sm};
   color: ${props => props.theme.colors.textSecondary};
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0;
-  font-size: 16px;
-  font-weight: bold;
-  
+  font-size: 14px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px ${props => props.theme.colors.shadow};
+
   &:hover {
     background-color: ${props => props.theme.colors.itemHover};
+    border-color: ${props => props.theme.colors.accent};
     color: ${props => props.theme.colors.accent};
     opacity: 1;
-    transform: scale(1.1);
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px ${props => props.theme.colors.shadowHover};
   }
-  
+
   &.is-favorite {
     opacity: 1;
     color: #FFD700;
+    background: rgba(255, 215, 0, 0.1);
+    border-color: rgba(255, 215, 0, 0.3);
   }
-  
+
   &.is-favorite:hover {
     color: #FFA500;
-    transform: scale(1.1);
+    background: rgba(255, 165, 0, 0.15);
+    border-color: rgba(255, 165, 0, 0.4);
+    transform: scale(1.05);
   }
-  
-  .favorite-btn {
-    opacity: 0;
-    transition: opacity 0.2s ease;
+
+  &:active {
+    transform: scale(0.95);
   }
 `
 
 const ImagePreview = styled.img`
   max-width: 100%;
-  max-height: 120px;
-  border-radius: 6px;
+  max-height: 140px;
+  border-radius: ${props => props.theme.borderRadius.md};
   object-fit: cover;
   display: block;
+  box-shadow: 0 2px 8px ${props => props.theme.colors.shadow};
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: scale(1.02);
+  }
 `
 
 const LinkPreview = styled.div`
   background: ${props => props.theme.colors.itemHover};
   border: 1px solid ${props => props.theme.colors.border};
-  border-radius: 6px;
-  padding: 12px;
-  
-  .link-title {
-    font-weight: 500;
-    color: ${props => props.theme.colors.text};
-    margin-bottom: 4px;
+  border-radius: ${props => props.theme.borderRadius.md};
+  padding: ${props => props.theme.spacing.lg};
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: ${props => props.theme.colors.accent};
+    box-shadow: 0 2px 8px ${props => props.theme.colors.shadow};
   }
-  
+
+  .link-title {
+    font-weight: 600;
+    color: ${props => props.theme.colors.text};
+    margin-bottom: ${props => props.theme.spacing.xs};
+    font-size: 14px;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+
   .link-url {
     font-size: 12px;
     color: ${props => props.theme.colors.accent};
     text-decoration: none;
-    
+    font-weight: 500;
+    opacity: 0.8;
+
     &:hover {
       text-decoration: underline;
+      opacity: 1;
     }
   }
 `
@@ -380,35 +725,51 @@ const LinkPreview = styled.div`
 const FilePreview = styled.div`
   background: ${props => props.theme.colors.itemHover};
   border: 1px solid ${props => props.theme.colors.border};
-  border-radius: 6px;
-  padding: 12px;
+  border-radius: ${props => props.theme.borderRadius.md};
+  padding: ${props => props.theme.spacing.lg};
   display: flex;
   align-items: center;
-  gap: 12px;
-  
+  gap: ${props => props.theme.spacing.lg};
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: ${props => props.theme.colors.accent};
+    box-shadow: 0 2px 8px ${props => props.theme.colors.shadow};
+  }
+
   .file-icon {
     font-size: 24px;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: ${props => props.theme.colors.accent}20;
-    border-radius: 6px;
+    background: ${props => props.theme.colors.accentLight};
+    border-radius: ${props => props.theme.borderRadius.md};
+    color: ${props => props.theme.colors.accent};
+    font-weight: 600;
   }
-  
+
   .file-info {
     flex: 1;
-    
+    min-width: 0; /* Allow text truncation */
+
     .file-name {
-      font-weight: 500;
+      font-weight: 600;
       color: ${props => props.theme.colors.text};
-      margin-bottom: 2px;
+      margin-bottom: ${props => props.theme.spacing.xs};
+      font-size: 14px;
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: -0.01em;
     }
-    
+
     .file-details {
       font-size: 12px;
       color: ${props => props.theme.colors.textSecondary};
+      font-weight: 500;
     }
   }
 `
@@ -416,26 +777,44 @@ const FilePreview = styled.div`
 const ColorPreview = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
-  
+  gap: ${props => props.theme.spacing.lg};
+
   .color-swatch {
-    width: 40px;
-    height: 40px;
-    border-radius: 6px;
+    width: 44px;
+    height: 44px;
+    border-radius: ${props => props.theme.borderRadius.md};
     border: 1px solid ${props => props.theme.colors.border};
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-  
-  .color-info {
-    .color-value {
-      font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-      font-weight: 500;
-      color: ${props => props.theme.colors.text};
+    box-shadow: 0 2px 8px ${props => props.theme.colors.shadow};
+    position: relative;
+    overflow: hidden;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
     }
-    
+  }
+
+  .color-info {
+    flex: 1;
+
+    .color-value {
+      font-family: ${props => props.theme.typography.fontFamilyMono};
+      font-weight: 600;
+      color: ${props => props.theme.colors.text};
+      font-size: 14px;
+      margin-bottom: ${props => props.theme.spacing.xs};
+      letter-spacing: -0.01em;
+    }
+
     .color-format {
       font-size: 12px;
       color: ${props => props.theme.colors.textSecondary};
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
   }
 `
@@ -443,20 +822,29 @@ const ColorPreview = styled.div`
 const CodePreview = styled.pre`
   background: ${props => props.theme.colors.itemHover};
   border: 1px solid ${props => props.theme.colors.border};
-  border-radius: 6px;
-  padding: 12px;
+  border-radius: ${props => props.theme.borderRadius.md};
+  padding: ${props => props.theme.spacing.lg};
   margin: 0;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-family: ${props => props.theme.typography.fontFamilyMono};
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.5;
   color: ${props => props.theme.colors.text};
   overflow-x: auto;
-  max-height: 120px;
-  
-  .keyword { color: ${props => props.theme.colors.accent}; }
+  max-height: 140px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: ${props => props.theme.colors.accent};
+    box-shadow: 0 2px 8px ${props => props.theme.colors.shadow};
+  }
+
+  /* Syntax highlighting */
+  .keyword { color: ${props => props.theme.colors.accent}; font-weight: 600; }
   .string { color: #32d74b; }
-  .comment { color: ${props => props.theme.colors.textSecondary}; font-style: italic; }
-  .number { color: #ff9f0a; }
+  .comment { color: ${props => props.theme.colors.textSecondary}; font-style: italic; opacity: 0.8; }
+  .number { color: #ff9f0a; font-weight: 500; }
+  .function { color: #af52de; }
+  .variable { color: ${props => props.theme.colors.text}; }
 `
 
 const LoadingSpinner = styled.div`
@@ -1118,10 +1506,11 @@ const App: React.FC = () => {
           <Sidebar>
             <SidebarHeader>
               <h1>
-                📋 ClipDesk
+                <span className="emoji">📋</span>
+                ClipDesk
               </h1>
             </SidebarHeader>
-            
+
             <SidebarContent>
               <SidebarSection>
                 {sidebarItems.map(item => (
@@ -1141,24 +1530,26 @@ const App: React.FC = () => {
             <SidebarFooter>
               <ThemeToggle onClick={toggleTheme}>
                 <span className="icon">{isDark ? '☀️' : '🌙'}</span>
-                <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
+                <span className="label">{isDark ? 'Light Mode' : 'Dark Mode'}</span>
               </ThemeToggle>
-              
+
               <SettingsButton onClick={() => setActiveView('settings')}>
                 <span className="icon">⚙️</span>
-                <span>Settings</span>
+                <span className="label">Settings</span>
               </SettingsButton>
             </SidebarFooter>
           </Sidebar>
 
           <MainContent>
             <SearchBar>
-              <SearchInput
-                type="text"
-                placeholder="Search clipboard history..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+              <SearchInputContainer>
+                <SearchInput
+                  type="text"
+                  placeholder="Search clipboard history..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </SearchInputContainer>
             </SearchBar>
 
             <ContentArea>
@@ -1296,11 +1687,14 @@ const App: React.FC = () => {
                       {getContentPreview(item)}
                     </div>
                     <div className="meta">
-                      {formatTimeAgo(item.accessedAt)} • {item.sourceApp || 'Unknown app'} • {item.contentType}
-                      {item.accessCount > 1 && ` • Used ${item.accessCount} times`}
-                      {item.isFavorite && ' • ⭐'}
+                      <span className="type-badge">{item.contentType}</span>
+                      <span className="source-app">{item.sourceApp || 'Unknown app'}</span>
+                      <span className="timestamp">{formatTimeAgo(item.accessedAt)}</span>
+                      {item.accessCount > 1 && (
+                        <span className="usage-count">Used {item.accessCount} times</span>
+                      )}
                     </div>
-                    <FavoriteButton 
+                    <FavoriteButton
                       className={`favorite-btn ${item.isFavorite ? 'is-favorite' : ''}`}
                       onClick={(e) => handleToggleFavorite(item, e)}
                       title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
