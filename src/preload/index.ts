@@ -37,6 +37,22 @@ ipcRenderer.on('clipboard-changed', (event, data) => {
   }
 })
 
+// Queue debug log events
+ipcRenderer.on('debug-log', (event, data) => {
+  const listener = activeListeners.get('debug-log')
+  if (listener) {
+    console.log('📨 Debug log event received and delivered')
+    try {
+      listener(data)
+    } catch (error) {
+      console.error('❌ Error in debug log listener:', error)
+    }
+  } else {
+    console.log('📬 Queueing debug log event (no listener yet)')
+    eventQueue.push({ channel: 'debug-log', data })
+  }
+})
+
 // Define the API interface that will be available in the renderer
 interface ClipDeskAPI {
   // Window management
@@ -89,6 +105,13 @@ interface ClipDeskAPI {
   monitor: {
     toggle: () => Promise<{ success: boolean; isRunning: boolean }>
     getStatus: () => Promise<{ isRunning: boolean }>
+    testClipboardAccess: () => Promise<{ success: boolean; error?: string; details?: any }>
+    debugCheckClipboard: () => Promise<{ success: boolean; error?: string }>
+  }
+
+  permissions: {
+    checkAccessibility: () => Promise<{ granted: boolean; error?: string }>
+    requestAccessibility: () => Promise<{ success: boolean; message?: string; error?: string }>
   }
 
   // App controls
@@ -145,6 +168,13 @@ const api: ClipDeskAPI = {
   monitor: {
     toggle: () => ipcRenderer.invoke('monitor-toggle'),
     getStatus: () => ipcRenderer.invoke('monitor-status'),
+    testClipboardAccess: () => ipcRenderer.invoke('test-clipboard-access'),
+    debugCheckClipboard: () => ipcRenderer.invoke('debug-check-clipboard'),
+  },
+
+  permissions: {
+    checkAccessibility: () => ipcRenderer.invoke('check-accessibility-permissions'),
+    requestAccessibility: () => ipcRenderer.invoke('request-accessibility-permissions'),
   },
 
   app: {
@@ -157,6 +187,7 @@ const api: ClipDeskAPI = {
     // Whitelist of allowed channels
     const validChannels = [
       'clipboard-changed',
+      'debug-log',
       'show-preferences',
       'focus-search',
       'settings-changed'

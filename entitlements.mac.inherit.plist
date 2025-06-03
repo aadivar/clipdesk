@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Temporarily disable App Sandbox for testing -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+    
+    <!-- Inherit entitlements from parent -->
+    <key>com.apple.security.inherit</key>
+    <true/>
+
+    <!-- Accessibility API access for clipboard monitoring -->
+    <key>com.apple.security.personal-information.accessibility</key>
+    <true/>
+
+    <!-- Device access for clipboard monitoring -->
+    <key>com.apple.security.device.clipboard</key>
+    <true/>
+  </dict>
+</plist> 

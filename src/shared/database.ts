@@ -1,296 +1,521 @@
-import { PrismaClient } from '@prisma/client';
-import { createHash } from 'crypto';
-import { ClipboardItem as ClipboardItemType } from './types';
+import { app } from 'electron';
+import path from 'path';
 
-export class DatabaseService {
-  private prisma: PrismaClient;
+// Dynamic import type for PrismaClient
+type PrismaClient = any;
 
-  constructor() {
-    this.prisma = new PrismaClient();
-  }
+class Database {
+  private prisma: PrismaClient | null = null;
+  private PrismaClientClass: any = null;
 
-  async initialize(): Promise<void> {
-    // Initialize default settings
-    await this.initializeDefaultSettings();
-  }
+  private async loadPrismaClient() {
+    try {
+      // Determine the correct path to the generated Prisma client
+      const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
-  private async initializeDefaultSettings(): Promise<void> {
-    const defaultSettings = [
-      { key: 'maxHistoryItems', value: '1000' },
-      { key: 'autoStartup', value: 'true' },
-      { key: 'showMenuBar', value: 'true' },
-      { key: 'globalShortcut', value: 'CommandOrControl+Shift+V' },
-      { key: 'excludedApps', value: '[]' },
-      { key: 'soundEnabled', value: 'true' },
-      { key: 'retentionDays', value: '30' },
-    ];
+      console.log('🔧 Loading PrismaClient...');
+      console.log('🔧 isDev:', isDev);
+      console.log('🔧 app.isPackaged:', app.isPackaged);
+      console.log('🔧 process.cwd():', process.cwd());
+      console.log('🔧 app.getAppPath():', app.getAppPath());
+      console.log('🔧 process.resourcesPath:', process.resourcesPath);
 
-    for (const setting of defaultSettings) {
-      await this.prisma.setting.upsert({
-        where: { key: setting.key },
-        update: {},
-        create: setting,
-      });
+      if (isDev) {
+        // Development: use relative path from project root
+        const prismaPath = path.join(process.cwd(), 'generated', 'prisma');
+        console.log('🔧 Dev prisma path:', prismaPath);
+        const { PrismaClient } = await import(prismaPath);
+        this.PrismaClientClass = PrismaClient;
+      } else {
+        // Production: try multiple possible paths
+        const possiblePaths = [
+          // Path 1: Using process.resourcesPath
+          process.resourcesPath ? path.join(process.resourcesPath, 'app.asar.unpacked', 'generated', 'prisma') : null,
+          // Path 2: Using app.getAppPath() + unpacked
+          path.join(path.dirname(app.getAppPath()), 'app.asar.unpacked', 'generated', 'prisma'),
+          // Path 3: Using app.getAppPath() directly (if not in asar)
+          path.join(app.getAppPath(), 'generated', 'prisma'),
+          // Path 4: Relative to current working directory
+          path.join(process.cwd(), 'generated', 'prisma')
+        ].filter(Boolean);
+
+        console.log('🔧 Trying production paths:', possiblePaths);
+
+        let loadError: Error | null = null;
+        for (const prismaPath of possiblePaths) {
+          try {
+            console.log('🔧 Attempting to load from:', prismaPath);
+            const { PrismaClient } = await import(prismaPath as string);
+            this.PrismaClientClass = PrismaClient;
+            console.log('✅ Successfully loaded PrismaClient from:', prismaPath);
+            break;
+          } catch (error) {
+            console.log('❌ Failed to load from:', prismaPath, error);
+            loadError = error as Error;
+            continue;
+          }
+        }
+
+        if (!this.PrismaClientClass) {
+          throw new Error(`Failed to load PrismaClient from any path. Last error: ${loadError?.message}`);
+        }
+      }
+
+      console.log('✅ PrismaClient loaded successfully');
+    } catch (error) {
+      console.error('❌ Failed to load PrismaClient:', error);
+      throw error;
     }
   }
 
-  // Clipboard Items
+  async initialize() {
+    try {
+      console.log('Initializing database...');
+      
+      // Set up the database path in the user data directory
+      const userDataPath = app.getPath('userData');
+      const dbPath = path.join(userDataPath, 'clipdesk.db');
+      
+      console.log('Database path:', dbPath);
+      
+      // Ensure DATABASE_URL environment variable is set
+      process.env.DATABASE_URL = `file:${dbPath}`;
+      console.log('DATABASE_URL:', process.env.DATABASE_URL);
+
+      // Load PrismaClient dynamically
+      await this.loadPrismaClient();
+
+      // Initialize Prisma client
+      this.prisma = new this.PrismaClientClass();
+      await this.prisma.$connect();
+
+      console.log('Database connected successfully');
+
+      // Ensure database schema exists
+      await this.ensureSchema();
+      return true;
+    } catch (error) {
+      console.error('Failed to initialize database:', error);
+      throw error;
+    }
+  }
+  
+  get client() {
+    if (!this.prisma) {
+      throw new Error('Database not initialized. Call initialize() first.');
+    }
+    return this.prisma;
+  }
+
+  isInitialized(): boolean {
+    return this.prisma !== null;
+  }
+
+  private async checkAndFixSchemaMismatch(): Promise<void> {
+    try {
+      // Check if clipboard_items table exists and has the wrong column names
+      const tableInfo = await this.prisma.$queryRaw`
+        PRAGMA table_info(clipboard_items)
+      ` as any[];
+
+      if (tableInfo.length > 0) {
+        // Check if we have the old camelCase column names
+        const hasOldSchema = tableInfo.some((col: any) =>
+          col.name === 'contentHash' ||
+          col.name === 'contentType' ||
+          col.name === 'rawContent' ||
+          col.name === 'sourceApp' ||
+          col.name === 'createdAt' ||
+          col.name === 'accessedAt' ||
+          col.name === 'accessCount' ||
+          col.name === 'isFavorite' ||
+          col.name === 'isDeleted'
+        );
+
+        if (hasOldSchema) {
+          console.log('🔧 Detected old schema with camelCase columns, recreating tables...');
+
+          // Drop all tables to recreate with correct schema
+          await this.prisma.$executeRaw`DROP TABLE IF EXISTS "item_tags"`;
+          await this.prisma.$executeRaw`DROP TABLE IF EXISTS "clipboard_items"`;
+          await this.prisma.$executeRaw`DROP TABLE IF EXISTS "tags"`;
+          await this.prisma.$executeRaw`DROP TABLE IF EXISTS "settings"`;
+          await this.prisma.$executeRaw`DROP TABLE IF EXISTS "snippets"`;
+          await this.prisma.$executeRaw`DROP TABLE IF EXISTS "license"`;
+
+          console.log('✅ Old tables dropped, will recreate with correct schema');
+        }
+      }
+    } catch (error) {
+      // If table doesn't exist or other error, that's fine - we'll create it
+      console.log('🔧 No existing tables found or error checking schema, will create fresh tables');
+    }
+  }
+
+  private async ensureSchema(): Promise<void> {
+    try {
+      console.log('🔧 Ensuring database schema exists...');
+
+      // Check if we need to recreate tables due to schema mismatch
+      await this.checkAndFixSchemaMismatch();
+
+      // Create tables if they don't exist - using snake_case as Prisma automatically converts camelCase to snake_case
+      await this.prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "clipboard_items" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "content_hash" TEXT NOT NULL UNIQUE,
+          "content_type" TEXT NOT NULL,
+          "content" TEXT NOT NULL,
+          "raw_content" BLOB,
+          "metadata" TEXT,
+          "source_app" TEXT,
+          "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "accessed_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "access_count" INTEGER NOT NULL DEFAULT 1,
+          "is_favorite" BOOLEAN NOT NULL DEFAULT false,
+          "is_deleted" BOOLEAN NOT NULL DEFAULT false
+        )
+      `;
+
+      await this.prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "tags" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "name" TEXT NOT NULL UNIQUE,
+          "color" TEXT,
+          "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+
+      await this.prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "item_tags" (
+          "item_id" TEXT NOT NULL,
+          "tag_id" TEXT NOT NULL,
+          PRIMARY KEY ("item_id", "tag_id"),
+          FOREIGN KEY ("item_id") REFERENCES "clipboard_items" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+          FOREIGN KEY ("tag_id") REFERENCES "tags" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+        )
+      `;
+
+      await this.prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "settings" (
+          "key" TEXT NOT NULL PRIMARY KEY,
+          "value" TEXT NOT NULL,
+          "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+
+      await this.prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "snippets" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "name" TEXT NOT NULL,
+          "content" TEXT NOT NULL,
+          "shortcut" TEXT UNIQUE,
+          "variables" TEXT,
+          "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+
+      // Create indexes for better performance
+      await this.prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "clipboard_items_content_hash_idx" ON "clipboard_items"("content_hash")
+      `;
+
+      await this.prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "clipboard_items_created_at_idx" ON "clipboard_items"("created_at")
+      `;
+
+      await this.prisma.$executeRaw`
+        CREATE INDEX IF NOT EXISTS "clipboard_items_is_deleted_idx" ON "clipboard_items"("is_deleted")
+      `;
+
+      console.log('✅ Database schema ensured successfully');
+    } catch (error) {
+      console.error('❌ Failed to ensure database schema:', error);
+      throw error;
+    }
+  }
+  
+  async disconnect() {
+    if (this.prisma) {
+      await this.prisma.$disconnect();
+      this.prisma = null;
+    }
+  }
+
+  // Clipboard Items CRUD operations
   async addClipboardItem(
     content: string,
-    contentType: string,
+    contentType: 'text' | 'image' | 'file' | 'link' | 'color',
     sourceApp?: string,
-    rawContent?: Buffer
-  ): Promise<ClipboardItemType> {
-    const contentHash = this.generateContentHash(content);
-    
-    // Check if item already exists
-    const existing = await this.prisma.clipboardItem.findUnique({
-      where: { contentHash },
-    });
+    rawContent?: Buffer,
+    metadata?: any
+  ) {
+    try {
+      console.log('💾 Adding clipboard item to database...');
 
-    if (existing) {
-      // Update access info for existing item
-      const updated = await this.prisma.clipboardItem.update({
-        where: { id: existing.id },
-        data: {
-          accessedAt: new Date(),
-          accessCount: { increment: 1 },
-          isDeleted: false, // Restore if it was soft deleted
-        },
-        include: { tags: { include: { tag: true } } },
+      // Generate content hash for deduplication
+      const contentHash = this.generateContentHash(content);
+      console.log('🔑 Generated content hash:', contentHash);
+
+      // Check if item already exists
+      const existingItem = await this.client.clipboardItem.findUnique({
+        where: { content_hash: contentHash }
       });
-      return this.transformClipboardItem(updated);
+
+      if (existingItem && !existingItem.is_deleted) {
+        console.log('♻️ Item already exists, updating access info...');
+        // Update existing item's access info
+        const updatedItem = await this.client.clipboardItem.update({
+          where: { id: existingItem.id },
+          data: {
+            accessed_at: new Date(),
+            access_count: { increment: 1 }
+          }
+        });
+        console.log('✅ Updated existing item:', updatedItem.id);
+        return updatedItem;
+      }
+
+      // Create new item
+      const newItem = await this.client.clipboardItem.create({
+        data: {
+          id: this.generateId(),
+          content_hash: contentHash,
+          content_type: contentType,
+          content,
+          raw_content: rawContent,
+          metadata: metadata ? JSON.stringify(metadata) : null,
+          source_app: sourceApp,
+          created_at: new Date(),
+          accessed_at: new Date(),
+          access_count: 1,
+          is_favorite: false,
+          is_deleted: false
+        }
+      });
+
+      console.log('✅ Created new clipboard item:', newItem.id);
+      return newItem;
+    } catch (error) {
+      console.error('❌ Error adding clipboard item:', error);
+      throw error;
     }
-
-    // Create new item
-    const newItem = await this.prisma.clipboardItem.create({
-      data: {
-        contentHash,
-        content,
-        contentType,
-        sourceApp,
-        rawContent,
-        metadata: this.generateMetadata(content, contentType),
-      },
-      include: { tags: { include: { tag: true } } },
-    });
-
-    // Clean up old items if we exceed the limit
-    await this.cleanupOldItems();
-
-    return this.transformClipboardItem(newItem);
   }
 
   async getClipboardItems(
-    limit = 50,
-    offset = 0,
+    limit: number = 50,
+    offset: number = 0,
     contentType?: string,
     searchQuery?: string
-  ): Promise<ClipboardItemType[]> {
-    const where: any = { isDeleted: false };
+  ) {
+    try {
+      const where: any = {
+        is_deleted: false
+      };
 
-    if (contentType) {
-      where.contentType = contentType;
-    }
-
-    if (searchQuery) {
-      where.OR = [
-        { content: { contains: searchQuery } },
-        { sourceApp: { contains: searchQuery } },
-        { tags: { some: { tag: { name: { contains: searchQuery } } } } },
-      ];
-    }
-
-    const items = await this.prisma.clipboardItem.findMany({
-      where,
-      orderBy: { accessedAt: 'desc' },
-      take: limit,
-      skip: offset,
-      include: { tags: { include: { tag: true } } },
-    });
-
-    return items.map(this.transformClipboardItem);
-  }
-
-  async toggleFavorite(id: string): Promise<ClipboardItemType> {
-    const item = await this.prisma.clipboardItem.findUnique({
-      where: { id },
-    });
-
-    if (!item) {
-      throw new Error('Clipboard item not found');
-    }
-
-    const updated = await this.prisma.clipboardItem.update({
-      where: { id },
-      data: { isFavorite: !item.isFavorite },
-      include: { tags: { include: { tag: true } } },
-    });
-
-    return this.transformClipboardItem(updated);
-  }
-
-  async deleteClipboardItem(id: string): Promise<void> {
-    await this.prisma.clipboardItem.update({
-      where: { id },
-      data: { isDeleted: true },
-    });
-  }
-
-  async clearHistory(): Promise<void> {
-    await this.prisma.clipboardItem.updateMany({
-      where: { isFavorite: false },
-      data: { isDeleted: true },
-    });
-  }
-
-  // Tags
-  async addTag(name: string, color?: string): Promise<any> {
-    return await this.prisma.tag.create({
-      data: { name, color },
-    });
-  }
-
-  async getTags(): Promise<any[]> {
-    return await this.prisma.tag.findMany({
-      orderBy: { name: 'asc' },
-    });
-  }
-
-  async addTagToItem(itemId: string, tagId: string): Promise<void> {
-    await this.prisma.itemTag.create({
-      data: { itemId, tagId },
-    });
-  }
-
-  // Snippets
-  async createSnippet(
-    name: string,
-    content: string,
-    shortcut?: string,
-    variables?: object
-  ): Promise<any> {
-    return await this.prisma.snippet.create({
-      data: {
-        name,
-        content,
-        shortcut,
-        variables: variables ? JSON.stringify(variables) : null,
-      },
-    });
-  }
-
-  async getSnippets(): Promise<any[]> {
-    return await this.prisma.snippet.findMany({
-      orderBy: { name: 'asc' },
-    });
-  }
-
-  // Settings
-  async getSetting(key: string): Promise<string | null> {
-    const setting = await this.prisma.setting.findUnique({
-      where: { key },
-    });
-    return setting?.value || null;
-  }
-
-  async setSetting(key: string, value: string): Promise<void> {
-    await this.prisma.setting.upsert({
-      where: { key },
-      update: { value },
-      create: { key, value },
-    });
-  }
-
-  // Helper methods
-  private generateContentHash(content: string): string {
-    return createHash('sha256').update(content).digest('hex');
-  }
-
-  private generateMetadata(content: string, contentType: string): string {
-    const metadata: any = {
-      size: content.length,
-      language: contentType === 'text' ? this.detectLanguage(content) : null,
-      wordCount: contentType === 'text' ? content.split(/\s+/).length : null,
-    };
-
-    if (contentType === 'link') {
-      try {
-        const url = new URL(content);
-        metadata.domain = url.hostname;
-        metadata.protocol = url.protocol;
-      } catch (e) {
-        // Invalid URL
+      if (contentType) {
+        where.content_type = contentType;
       }
-    }
 
-    return JSON.stringify(metadata);
-  }
+      if (searchQuery) {
+        where.content = {
+          contains: searchQuery,
+          mode: 'insensitive'
+        };
+      }
 
-  private detectLanguage(content: string): string | null {
-    // Simple language detection based on patterns
-    if (/^\s*[\[\{]/.test(content) && /[\]\}]\s*$/.test(content)) {
-      return 'json';
-    }
-    if (/^\s*</.test(content) && />/.test(content)) {
-      return 'html';
-    }
-    if (/import\s+|export\s+|function\s+|const\s+|let\s+|var\s+/.test(content)) {
-      return 'javascript';
-    }
-    return null;
-  }
-
-  private transformClipboardItem(item: any): ClipboardItemType {
-    return {
-      id: item.id,
-      content: item.content,
-      contentType: item.contentType as any,
-      sourceApp: item.sourceApp,
-      createdAt: item.createdAt,
-      accessedAt: item.accessedAt,
-      accessCount: item.accessCount,
-      isFavorite: item.isFavorite,
-      tags: item.tags?.map((t: any) => t.tag) || [],
-      metadata: item.metadata ? JSON.parse(item.metadata) : null,
-    };
-  }
-
-  private async cleanupOldItems(): Promise<void> {
-    const maxItems = parseInt(await this.getSetting('maxHistoryItems') || '1000');
-    const retentionDays = parseInt(await this.getSetting('retentionDays') || '30');
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-
-    // Delete old items that are not favorites
-    await this.prisma.clipboardItem.updateMany({
-      where: {
-        isFavorite: false,
-        createdAt: { lt: cutoffDate },
-      },
-      data: { isDeleted: true },
-    });
-
-    // Keep only the most recent maxItems (excluding favorites)
-    const recentItems = await this.prisma.clipboardItem.findMany({
-      where: { isDeleted: false, isFavorite: false },
-      orderBy: { accessedAt: 'desc' },
-      skip: maxItems,
-      select: { id: true },
-    });
-
-    if (recentItems.length > 0) {
-      await this.prisma.clipboardItem.updateMany({
-        where: { id: { in: recentItems.map(item => item.id) } },
-        data: { isDeleted: true },
+      const items = await this.client.clipboardItem.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        take: limit,
+        skip: offset,
+        include: {
+          tags: {
+            include: {
+              tag: true
+            }
+          }
+        }
       });
+
+      return items.map((item: any) => ({
+        ...item,
+        tags: item.tags.map((t: any) => t.tag),
+        metadata: item.metadata ? JSON.parse(item.metadata) : null
+      }));
+    } catch (error) {
+      console.error('Error getting clipboard items:', error);
+      throw error;
     }
   }
 
-  async close(): Promise<void> {
-    await this.prisma.$disconnect();
+  async deleteClipboardItem(id: string) {
+    try {
+      await this.client.clipboardItem.update({
+        where: { id },
+        data: { is_deleted: true }
+      });
+    } catch (error) {
+      console.error('Error deleting clipboard item:', error);
+      throw error;
+    }
+  }
+
+  async clearHistory() {
+    try {
+      await this.client.clipboardItem.updateMany({
+        where: { is_deleted: false },
+        data: { is_deleted: true }
+      });
+    } catch (error) {
+      console.error('Error clearing history:', error);
+      throw error;
+    }
+  }
+
+  async toggleFavorite(id: string) {
+    try {
+      const item = await this.client.clipboardItem.findUnique({
+        where: { id }
+      });
+
+      if (!item) {
+        throw new Error('Item not found');
+      }
+
+      const updatedItem = await this.client.clipboardItem.update({
+        where: { id },
+        data: { is_favorite: !item.is_favorite }
+      });
+
+      return updatedItem;
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      throw error;
+    }
+  }
+
+  // Tags CRUD operations
+  async getTags() {
+    try {
+      return await this.client.tag.findMany({
+        orderBy: { name: 'asc' }
+      });
+    } catch (error) {
+      console.error('Error getting tags:', error);
+      throw error;
+    }
+  }
+
+  async addTag(name: string, color?: string) {
+    try {
+      return await this.client.tag.create({
+        data: {
+          id: this.generateId(),
+          name,
+          color
+        }
+      });
+    } catch (error) {
+      console.error('Error adding tag:', error);
+      throw error;
+    }
+  }
+
+  async addTagToItem(itemId: string, tagId: string) {
+    try {
+      await this.client.itemTag.create({
+        data: {
+          item_id: itemId,
+          tag_id: tagId
+        }
+      });
+    } catch (error) {
+      console.error('Error adding tag to item:', error);
+      throw error;
+    }
+  }
+
+  // Settings CRUD operations
+  async getSetting(key: string) {
+    try {
+      const setting = await this.client.setting.findUnique({
+        where: { key }
+      });
+      return setting?.value || null;
+    } catch (error) {
+      console.error('Error getting setting:', error);
+      throw error;
+    }
+  }
+
+  async setSetting(key: string, value: string) {
+    try {
+      await this.client.setting.upsert({
+        where: { key },
+        update: { value },
+        create: {
+          key,
+          value
+        }
+      });
+    } catch (error) {
+      console.error('Error setting value:', error);
+      throw error;
+    }
+  }
+
+  // Snippets CRUD operations
+  async getSnippets() {
+    try {
+      return await this.client.snippet.findMany({
+        orderBy: { name: 'asc' }
+      });
+    } catch (error) {
+      console.error('Error getting snippets:', error);
+      throw error;
+    }
+  }
+
+  async createSnippet(name: string, content: string, shortcut?: string, variables?: any) {
+    try {
+      return await this.client.snippet.create({
+        data: {
+          id: this.generateId(),
+          name,
+          content,
+          shortcut,
+          variables: variables ? JSON.stringify(variables) : null,
+          created_at: new Date()
+        }
+      });
+    } catch (error) {
+      console.error('Error creating snippet:', error);
+      throw error;
+    }
+  }
+
+  // Utility methods
+  private generateContentHash(content: string): string {
+    // Simple hash function for content deduplication
+    let hash = 0;
+    for (let i = 0; i < content.length; i++) {
+      const char = content.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return hash.toString();
+  }
+
+  private generateId(): string {
+    // Simple UUID-like ID generator
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
   }
 }
 
-// Singleton instance
-export const db = new DatabaseService(); 
+export const db = new Database();

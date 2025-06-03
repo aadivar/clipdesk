@@ -638,44 +638,70 @@ const App: React.FC = () => {
   }
 
   useEffect(() => {
-    // Initialize the app
+    // Initialize the app with retry mechanism
     const initializeApp = async () => {
-      try {
-        // Load settings
-        if (window.clipdesk) {
-          const [retentionDays, maxHistoryItems, autoStartup, soundEnabled] = await Promise.all([
-            window.clipdesk.settings.get('retentionDays'),
-            window.clipdesk.settings.get('maxHistoryItems'),
-            window.clipdesk.settings.get('autoStartup'),
-            window.clipdesk.settings.get('soundEnabled')
-          ])
-          
-          setSettings({
-            retentionDays: retentionDays || '30',
-            maxHistoryItems: maxHistoryItems || '1000',
-            autoStartup: autoStartup || 'true',
-            soundEnabled: soundEnabled || 'true'
-          })
+      const maxRetries = 5
+      const retryDelay = 1000 // 1 second
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`🔧 App initialization attempt ${attempt}/${maxRetries}`)
+
+          // Wait a bit for IPC handlers to be ready
+          if (attempt > 1) {
+            await new Promise(resolve => setTimeout(resolve, retryDelay))
+          }
+
+          // Load settings
+          if (window.clipdesk) {
+            console.log('🔧 Loading settings...')
+            const [retentionDays, maxHistoryItems, autoStartup, soundEnabled] = await Promise.all([
+              window.clipdesk.settings.get('retentionDays'),
+              window.clipdesk.settings.get('maxHistoryItems'),
+              window.clipdesk.settings.get('autoStartup'),
+              window.clipdesk.settings.get('soundEnabled')
+            ])
+
+            setSettings({
+              retentionDays: retentionDays || '30',
+              maxHistoryItems: maxHistoryItems || '1000',
+              autoStartup: autoStartup || 'true',
+              soundEnabled: soundEnabled || 'true'
+            })
+            console.log('✅ Settings loaded successfully')
+          }
+
+          // Load clipboard history
+          if (window.clipdesk) {
+            console.log('🔧 Loading clipboard history...')
+            const history = await window.clipdesk.clipboard.getHistory({ limit: 100 })
+            console.log('✅ Loaded history:', history?.length || 0, 'items')
+            setClipboardItems(history || [])
+          } else {
+            setError('ClipDesk API not available')
+          }
+
+          // If we get here, initialization was successful
+          console.log('✅ App initialization completed successfully')
+          break
+
+        } catch (error) {
+          console.error(`❌ App initialization attempt ${attempt} failed:`, error)
+
+          if (attempt === maxRetries) {
+            console.error('❌ All initialization attempts failed')
+            setError('Failed to load clipboard history')
+          } else {
+            console.log(`⏳ Retrying in ${retryDelay}ms...`)
+          }
         }
-        
-        // Load clipboard history
-        if (window.clipdesk) {
-          console.log('Loading clipboard history...')
-          const history = await window.clipdesk.clipboard.getHistory({ limit: 100 })
-          console.log('Loaded history:', history)
-          setClipboardItems(history || [])
-        } else {
-          setError('ClipDesk API not available')
-        }
-      } catch (error) {
-        console.error('Failed to initialize app:', error)
-        setError('Failed to load clipboard history')
-      } finally {
-        setIsLoading(false)
       }
+
+      setIsLoading(false)
     }
 
-    initializeApp()
+    // Add a small initial delay to ensure main process is ready
+    setTimeout(initializeApp, 500)
 
     // Listen for clipboard updates
     if (window.clipdesk) {
@@ -731,9 +757,19 @@ const App: React.FC = () => {
       console.log('🔗 Setting up clipboard-changed event listener')
       window.clipdesk.on('clipboard-changed', handleClipboardChange)
 
+      // Add debug log listener to see main process messages
+      const handleDebugLog = (message: string) => {
+        console.log('🔧 Main Process:', message)
+      }
+      
+      console.log('🔗 Setting up debug-log event listener')
+      window.clipdesk.on('debug-log', handleDebugLog)
+
       return () => {
         console.log('🔌 Removing clipboard-changed event listener')
         window.clipdesk.off('clipboard-changed', handleClipboardChange)
+        console.log('🔌 Removing debug-log event listener')
+        window.clipdesk.off('debug-log', handleDebugLog)
       }
     } else {
       console.error('❌ window.clipdesk not available for event listeners')

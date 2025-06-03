@@ -2,8 +2,9 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
+  provider      = "prisma-client-js"
+  output        = "../generated/prisma"
+  binaryTargets = ["native", "darwin", "darwin-arm64", "windows", "linux-musl"]
 }
 
 datasource db {
@@ -12,18 +13,18 @@ datasource db {
 }
 
 model ClipboardItem {
-  id          String   @id @default(cuid())
-  contentHash String   @unique // For deduplication
-  contentType String   // 'text', 'image', 'file', 'link', 'color'
-  content     String   // Text representation or file path
-  rawContent  Bytes?   // Binary data for images/files
-  metadata    String?  // JSON string for additional data
-  sourceApp   String?  // App that created this clipboard item
-  createdAt   DateTime @default(now())
-  accessedAt  DateTime @default(now())
-  accessCount Int      @default(1)
-  isFavorite  Boolean  @default(false)
-  isDeleted   Boolean  @default(false)
+  id           String   @id @default(cuid())
+  content_hash String   @unique // For deduplication
+  content_type String   // 'text', 'image', 'file', 'link', 'color'
+  content      String   // Text representation or file path
+  raw_content  Bytes?   // Binary data for images/files
+  metadata     String?  // JSON string for additional data
+  source_app   String?  // App that created this clipboard item
+  created_at   DateTime @default(now())
+  accessed_at  DateTime @default(now())
+  access_count Int      @default(1)
+  is_favorite  Boolean  @default(false)
+  is_deleted   Boolean  @default(false)
 
   // Relations
   tags ItemTag[]
@@ -32,10 +33,10 @@ model ClipboardItem {
 }
 
 model Tag {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  color     String?  // Hex color for tag
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  name       String   @unique
+  color      String?  // Hex color for tag
+  created_at DateTime @default(now())
 
   // Relations
   items ItemTag[]
@@ -44,44 +45,44 @@ model Tag {
 }
 
 model ItemTag {
-  itemId String
-  tagId  String
+  item_id String
+  tag_id  String
 
   // Relations
-  item ClipboardItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  tag  Tag           @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  item ClipboardItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  tag  Tag           @relation(fields: [tag_id], references: [id], onDelete: Cascade)
 
-  @@id([itemId, tagId])
+  @@id([item_id, tag_id])
   @@map("item_tags")
 }
 
 model Snippet {
-  id        String   @id @default(cuid())
-  name      String
-  content   String
-  shortcut  String?  @unique // Keyboard shortcut for quick access
-  variables String?  // JSON string for template variables
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  name       String
+  content    String
+  shortcut   String?  @unique // Keyboard shortcut for quick access
+  variables  String?  // JSON string for template variables
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@map("snippets")
 }
 
 model Setting {
-  key       String   @id
-  value     String   // JSON string for complex values
-  updatedAt DateTime @default(now()) @updatedAt
+  key        String   @id
+  value      String   // JSON string for complex values
+  updated_at DateTime @default(now()) @updatedAt
 
   @@map("settings")
 }
 
 model License {
-  id           String    @id @default(cuid())
-  licenseKey   String    @unique
-  purchaseDate DateTime
-  expiresAt    DateTime?
-  isValid      Boolean   @default(true)
-  createdAt    DateTime  @default(now())
+  id            String    @id @default(cuid())
+  license_key   String    @unique
+  purchase_date DateTime
+  expires_at    DateTime?
+  is_valid      Boolean   @default(true)
+  created_at    DateTime  @default(now())
 
   @@map("license")
 }

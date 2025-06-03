@@ -1,10 +1,11 @@
-import { app, BrowserWindow, Menu, Tray, globalShortcut, shell, nativeImage, ipcMain } from 'electron'
+import { app, BrowserWindow, Menu, Tray, globalShortcut, shell, nativeImage, ipcMain, protocol } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { clipboardMonitor } from './clipboardMonitor'
 import { db } from '../shared/database'
 
 const isDev = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV
+const SCHEME = 'clipdesk'
 
 class ClipDeskApp {
   private mainWindow: BrowserWindow | null = null
@@ -16,19 +17,106 @@ class ClipDeskApp {
   }
 
   private setupApp(): void {
+    // Register custom protocol before app is ready - THIS IS CRITICAL
+    protocol.registerSchemesAsPrivileged([
+      {
+        scheme: SCHEME,
+        privileges: {
+          standard: true,
+          secure: true,
+          allowServiceWorkers: true,
+          supportFetchAPI: true,
+          corsEnabled: true
+        }
+      }
+    ])
+
     // Handle app events
-    app.whenReady().then(() => {
-      this.createWindow()
-      this.createTray()
-      this.registerGlobalShortcuts()
-      this.setupIPCHandlers()
-      this.startClipboardMonitoring()
+    app.whenReady().then(async () => {
+      try {
+        // Log environment info for debugging
+        console.log('=== CLIPDESK STARTUP DEBUG ===')
+        console.log('NODE_ENV:', process.env.NODE_ENV)
+        console.log('isDev:', isDev)
+        console.log('app.isPackaged:', app.isPackaged)
+        console.log('app.getAppPath():', app.getAppPath())
+        console.log('__dirname:', __dirname)
+        console.log('process.cwd():', process.cwd())
+        console.log('============================')
+
+        // FIRST: Set up IPC handlers immediately - this is critical
+        console.log('🔧 Setting up IPC handlers...')
+        this.setupIPCHandlers()
+        console.log('✅ IPC handlers set up successfully')
+
+        // Register the protocol handler AFTER app is ready
+        console.log('🔧 Registering protocol...')
+        this.registerProtocol()
+        console.log('✅ Protocol registered successfully')
+
+        // Create window early so renderer can start
+        console.log('🔧 Creating window...')
+        this.createWindow()
+        console.log('✅ Window created successfully')
+
+        // Create tray
+        console.log('🔧 Creating tray...')
+        this.createTray()
+        console.log('✅ Tray created successfully')
+
+        // Register shortcuts
+        console.log('🔧 Registering shortcuts...')
+        this.registerGlobalShortcuts()
+        console.log('✅ Shortcuts registered successfully')
+
+        // Check accessibility permissions (non-blocking)
+        if (process.platform === 'darwin') {
+          try {
+            console.log('🔧 Checking accessibility permissions...')
+            await this.checkAccessibilityPermissions()
+            console.log('✅ Accessibility permissions checked')
+          } catch (error) {
+            console.error('❌ Accessibility permissions check failed:', error)
+            // Continue anyway
+          }
+        }
+
+        // Initialize database (non-blocking)
+        try {
+          console.log('🔧 Initializing database...')
+          await db.initialize()
+          console.log('✅ Database initialized successfully')
+        } catch (error) {
+          console.error('❌ Database initialization failed:', error)
+          // Continue with app startup even if database fails
+        }
+
+        // Start clipboard monitoring (non-blocking)
+        try {
+          console.log('🔧 Starting clipboard monitoring...')
+          await this.startClipboardMonitoring()
+          console.log('✅ Clipboard monitoring started successfully')
+        } catch (error) {
+          console.error('❌ Clipboard monitoring failed to start:', error)
+          // Continue with app startup even if clipboard monitoring fails
+        }
+
+        console.log('✅ ClipDesk startup completed successfully')
+      } catch (error) {
+        console.error('❌ Critical error during app startup:', error)
+        // Even if there's a critical error, try to set up basic IPC handlers
+        try {
+          this.setupIPCHandlers()
+        } catch (ipcError) {
+          console.error('❌ Failed to set up IPC handlers:', ipcError)
+        }
+      }
     })
 
-    app.on('window-all-closed', () => {
+    app.on('window-all-closed', async () => {
       // On macOS, keep app running even when all windows are closed
       if (process.platform !== 'darwin') {
-        this.cleanup()
+        await this.cleanup()
         app.quit()
       }
     })
@@ -39,8 +127,87 @@ class ClipDeskApp {
       }
     })
 
-    app.on('before-quit', () => {
-      this.cleanup()
+    app.on('before-quit', async () => {
+      await this.cleanup()
+    })
+  }
+
+  private registerProtocol(): void {
+    const mimeTypes: { [key: string]: string } = {
+      '.js': 'text/javascript',
+      '.mjs': 'text/javascript', 
+      '.html': 'text/html',
+      '.htm': 'text/html',
+      '.json': 'application/json',
+      '.css': 'text/css',
+      '.svg': 'image/svg+xml',
+      '.ico': 'image/vnd.microsoft.icon',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.woff': 'font/woff',
+      '.woff2': 'font/woff2',
+      '.ttf': 'font/ttf',
+      '.map': 'text/plain'
+    }
+
+    protocol.handle(SCHEME, (request) => {
+      const url = new URL(request.url)
+      let filePath = url.pathname
+      
+      // Remove leading slash
+      if (filePath.startsWith('/')) {
+        filePath = filePath.slice(1)
+      }
+      
+      // Default to index.html if no file specified
+      if (!filePath || filePath === '') {
+        filePath = 'index.html'
+      }
+
+      // Build the full path to the file
+      let fullPath: string
+      if (isDev && !app.isPackaged) {
+        fullPath = path.join(process.cwd(), 'dist/renderer', filePath)
+      } else {
+        // In production ASAR, the files are in app.asar/dist/renderer/
+        // Use app.getAppPath() which points to the ASAR file itself in production
+        const basePath = app.getAppPath()
+        fullPath = path.join(basePath, 'dist/renderer', filePath)
+        
+        // Log for debugging production issues
+        console.log('Production mode - App path:', basePath)
+        console.log('Production mode - Full path:', fullPath)
+      }
+
+      console.log('Protocol request:', request.url)
+      console.log('Resolved path:', fullPath)
+
+      return new Promise((resolve, reject) => {
+        fs.readFile(fullPath, (err, data) => {
+          if (err) {
+            console.error('File not found:', fullPath, err)
+            reject(err)
+            return
+          }
+
+          // Determine content type
+          const ext = path.extname(filePath).toLowerCase()
+          const mimeType = mimeTypes[ext] || 'application/octet-stream'
+
+          console.log('Serving file:', filePath, 'as', mimeType)
+
+          resolve(new Response(data, {
+            status: 200,
+            headers: {
+              'Content-Type': mimeType,
+              'Cache-Control': 'no-cache'
+            }
+          }))
+        })
+      })
     })
   }
 
@@ -55,25 +222,40 @@ class ClipDeskApp {
       trafficLightPosition: { x: 20, y: 20 },
       backgroundColor: '#ffffff',
       title: '', // Remove title to clean up the title bar
+      icon: isDev 
+        ? path.join(__dirname, '../../assets/icon.png')
+        : path.join(app.getAppPath(), 'assets/icon.png'),
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        preload: path.resolve(__dirname, '../preload/index.js'),
+        webSecurity: true, // Keep security enabled
+        preload: isDev
+          ? path.resolve(__dirname, '../preload/index.js')
+          : path.join(app.getAppPath(), 'dist/main/src/preload/index.js'),
       },
     })
 
-    // Load the app
-    if (isDev) {
-      // In development, load from the dev server or fall back to built files
+    // Load the app using the proven custom protocol solution
+    if (isDev && !app.isPackaged) {
+      // In development, load from the dev server or fall back to custom protocol
       this.mainWindow.loadURL('http://localhost:5173').catch(() => {
-        console.warn('Dev server not available, loading built files')
+        console.warn('Dev server not available, loading via custom protocol')
         if (this.mainWindow) {
-          this.mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+          this.mainWindow.loadURL(`${SCHEME}://localhost/index.html`)
         }
       })
       this.mainWindow.webContents.openDevTools()
     } else {
-      this.mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+      // In production or packaged app, use custom protocol (this bypasses CSP completely)
+      console.log('Production/Packaged app detected - using custom protocol')
+      console.log('Loading renderer from:', `${SCHEME}://localhost/index.html`)
+      
+      try {
+        this.mainWindow.loadURL(`${SCHEME}://localhost/index.html`)
+        console.log('✅ Successfully loaded using custom protocol')
+      } catch (error) {
+        console.error('❌ Failed to load using custom protocol:', error)
+      }
     }
 
     // Show window when ready to prevent visual flash
@@ -103,7 +285,10 @@ class ClipDeskApp {
     // Use a proper path for the tray icon, with fallback
     let trayIcon: Electron.NativeImage
     try {
-      trayIcon = nativeImage.createFromPath(path.join(__dirname, '../assets/tray-icon.png'))
+      const trayIconPath = isDev 
+        ? path.join(__dirname, '../../assets/tray-icon.png')
+        : path.join(app.getAppPath(), 'assets/tray-icon.png')
+      trayIcon = nativeImage.createFromPath(trayIconPath)
     } catch (error) {
       console.warn('Failed to load tray icon, using default:', error)
       // Create a simple tray without custom icon
@@ -147,8 +332,8 @@ class ClipDeskApp {
       {
         label: 'Quit ClipDesk',
         accelerator: 'CommandOrControl+Q',
-        click: () => {
-          this.cleanup()
+        click: async () => {
+          await this.cleanup()
           app.quit()
         }
       }
@@ -184,12 +369,39 @@ class ClipDeskApp {
 
   private async startClipboardMonitoring(): Promise<void> {
     try {
+      console.log('🔧 startClipboardMonitoring() called')
+      console.log('🔧 App is packaged:', app.isPackaged)
+      console.log('🔧 Process platform:', process.platform)
+
+      // Send debug info to renderer
+      if (this.mainWindow && this.mainWindow.webContents) {
+        this.mainWindow.webContents.send('debug-log', '🔧 Starting clipboard monitoring...')
+        this.mainWindow.webContents.send('debug-log', `🔧 App is packaged: ${app.isPackaged}`)
+      }
+
       // Start clipboard monitoring
+      console.log('🔧 Calling clipboardMonitor.start()...')
       await clipboardMonitor.start();
+      console.log('🔧 clipboardMonitor.start() completed')
+
+      // Check status after start
+      const isRunning = clipboardMonitor.isRunning();
+      console.log('🔧 Monitor running after start:', isRunning)
+
+      console.log('✅ Clipboard monitoring started successfully')
+      if (this.mainWindow && this.mainWindow.webContents) {
+        this.mainWindow.webContents.send('debug-log', '✅ Clipboard monitoring started successfully')
+        this.mainWindow.webContents.send('debug-log', `📊 Monitor running: ${isRunning}`)
+      }
 
       // Listen for clipboard changes
       clipboardMonitor.on('clipboardChanged', async (content) => {
         console.log('📋 Clipboard changed in main:', content.type);
+        
+        // Send to renderer for debugging
+        if (this.mainWindow && this.mainWindow.webContents) {
+          this.mainWindow.webContents.send('debug-log', `📋 Clipboard changed: ${content.type}`)
+        }
         
         try {
           // Wait a bit for the database to be updated
@@ -250,25 +462,41 @@ class ClipDeskApp {
             }
           } else {
             console.log('⚠️ No recent items found in database');
+            if (this.mainWindow && this.mainWindow.webContents) {
+              this.mainWindow.webContents.send('debug-log', '⚠️ No recent items found in database')
+            }
           }
         } catch (error) {
           console.error('❌ Error sending clipboard change to renderer:', error);
+          if (this.mainWindow && this.mainWindow.webContents) {
+            this.mainWindow.webContents.send('debug-log', `❌ Error: ${error}`)
+          }
         }
       });
 
       console.log('Clipboard monitoring started successfully');
     } catch (error) {
       console.error('Failed to start clipboard monitoring:', error);
+      if (this.mainWindow && this.mainWindow.webContents) {
+        this.mainWindow.webContents.send('debug-log', `❌ Failed to start clipboard monitoring: ${error}`)
+      }
     }
   }
 
   private toggleClipboardMonitoring(): void {
+    console.log('🔧 toggleClipboardMonitoring called')
+    console.log('🔧 Current monitoring status:', clipboardMonitor.isRunning())
+
     if (clipboardMonitor.isRunning()) {
+      console.log('🔧 Stopping clipboard monitoring...')
       clipboardMonitor.stop()
       this.updateTrayMenu('Resume Monitoring')
+      console.log('🔧 Clipboard monitoring stopped')
     } else {
+      console.log('🔧 Starting clipboard monitoring...')
       clipboardMonitor.start()
       this.updateTrayMenu('Pause Monitoring')
+      console.log('🔧 Clipboard monitoring start initiated')
     }
   }
 
@@ -289,11 +517,16 @@ class ClipDeskApp {
     // Clipboard operations
     ipcMain.handle('clipboard-get-items', async (event, options = {}) => {
       try {
+        // Check if database is initialized
+        if (!db.isInitialized()) {
+          console.warn('Database not initialized, returning empty array for clipboard items')
+          return []
+        }
         const { limit = 50, offset = 0, contentType, searchQuery } = options
         return await db.getClipboardItems(limit, offset, contentType, searchQuery)
       } catch (error) {
         console.error('Error getting clipboard items:', error)
-        throw error
+        return [] // Return empty array instead of throwing
       }
     })
 
@@ -389,20 +622,30 @@ class ClipDeskApp {
     // Settings operations
     ipcMain.handle('settings-get', async (event, key: string) => {
       try {
+        // Check if database is initialized
+        if (!db.isInitialized()) {
+          console.warn('Database not initialized, returning null for setting:', key)
+          return null
+        }
         return await db.getSetting(key)
       } catch (error) {
         console.error('Error getting setting:', error)
-        throw error
+        return null // Return null instead of throwing
       }
     })
 
     ipcMain.handle('settings-set', async (event, key: string, value: string) => {
       try {
+        // Check if database is initialized
+        if (!db.isInitialized()) {
+          console.warn('Database not initialized, cannot set setting:', key)
+          return { success: false, error: 'Database not initialized' }
+        }
         await db.setSetting(key, value)
         return { success: true }
       } catch (error) {
         console.error('Error setting value:', error)
-        throw error
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
       }
     })
 
@@ -426,6 +669,68 @@ class ClipDeskApp {
       }
     })
 
+    ipcMain.handle('test-clipboard-access', async () => {
+      try {
+        return await clipboardMonitor.testClipboardAccess()
+      } catch (error) {
+        console.error('Error testing clipboard access:', error)
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
+      }
+    })
+
+    // Debug method to manually trigger clipboard check
+    ipcMain.handle('debug-check-clipboard', async () => {
+      try {
+        console.log('🔧 Manual clipboard check triggered from renderer')
+        if (this.mainWindow && this.mainWindow.webContents) {
+          this.mainWindow.webContents.send('debug-log', '🔧 Manual clipboard check triggered')
+        }
+
+        // Force a clipboard check
+        await (clipboardMonitor as any).checkClipboard()
+
+        return { success: true }
+      } catch (error) {
+        console.error('Error in manual clipboard check:', error)
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
+      }
+    })
+
+    // Accessibility permissions
+    ipcMain.handle('check-accessibility-permissions', async () => {
+      try {
+        if (process.platform === 'darwin') {
+          const { systemPreferences } = require('electron')
+          if (systemPreferences && systemPreferences.isTrustedAccessibilityClient) {
+            const isTrusted = systemPreferences.isTrustedAccessibilityClient(false)
+            await db.setSetting('accessibilityPermissionsGranted', isTrusted ? 'true' : 'false')
+            return { granted: isTrusted }
+          }
+        }
+        return { granted: true } // Assume granted on non-macOS platforms
+      } catch (error) {
+        console.error('Error checking accessibility permissions:', error)
+        return { granted: false, error: error instanceof Error ? error.message : String(error) }
+      }
+    })
+
+    ipcMain.handle('request-accessibility-permissions', async () => {
+      try {
+        if (process.platform === 'darwin') {
+          const { systemPreferences } = require('electron')
+          if (systemPreferences && systemPreferences.isTrustedAccessibilityClient) {
+            // This will prompt the user and open System Preferences
+            systemPreferences.isTrustedAccessibilityClient(true)
+            return { success: true }
+          }
+        }
+        return { success: false, message: 'Not supported on this platform' }
+      } catch (error) {
+        console.error('Error requesting accessibility permissions:', error)
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
+      }
+    })
+
     // App controls
     ipcMain.handle('app-show-window', async () => {
       this.showWindow()
@@ -440,13 +745,13 @@ class ClipDeskApp {
     })
 
     ipcMain.handle('app-quit', async () => {
-      this.cleanup()
+      await this.cleanup()
       app.quit()
       return { success: true }
     })
   }
 
-  private cleanup(): void {
+  private async cleanup(): Promise<void> {
     try {
       // Stop clipboard monitoring
       if (clipboardMonitor.isRunning()) {
@@ -457,11 +762,63 @@ class ClipDeskApp {
       globalShortcut.unregisterAll()
 
       // Close database connection
-      db.close()
+      await db.disconnect()
 
       console.log('App cleanup completed')
     } catch (error) {
       console.error('Error during cleanup:', error)
+    }
+  }
+
+  private async checkAccessibilityPermissions(): Promise<void> {
+    try {
+      console.log('🔒 Checking accessibility permissions...')
+
+      // For macOS, we need to check if the app has accessibility permissions
+      // This is required for clipboard monitoring in sandboxed environments
+      const { systemPreferences, dialog } = require('electron')
+
+      if (systemPreferences && systemPreferences.isTrustedAccessibilityClient) {
+        const isTrusted = systemPreferences.isTrustedAccessibilityClient(false)
+        console.log('Accessibility permissions trusted:', isTrusted)
+
+        if (!isTrusted) {
+          console.log('⚠️ Accessibility permissions not granted. Clipboard monitoring may not work properly.')
+          console.log('📖 Please go to System Preferences > Security & Privacy > Privacy > Accessibility and enable ClipDesk')
+
+          // Show a user-friendly dialog explaining the need for permissions
+          const result = await dialog.showMessageBox({
+            type: 'warning',
+            title: 'Accessibility Permissions Required',
+            message: 'ClipDesk needs accessibility permissions to monitor clipboard changes from other applications.',
+            detail: 'Without these permissions, ClipDesk can only detect clipboard changes when you copy text within ClipDesk itself.\n\nWould you like to open System Preferences to grant these permissions?',
+            buttons: ['Open System Preferences', 'Continue Without Permissions', 'Quit'],
+            defaultId: 0,
+            cancelId: 1
+          })
+
+          if (result.response === 0) {
+            // Try to prompt for permissions (this will open System Preferences)
+            systemPreferences.isTrustedAccessibilityClient(true)
+          } else if (result.response === 2) {
+            // User chose to quit
+            require('electron').app.quit()
+            return
+          }
+
+          // Store permission status for later reference
+          await db.setSetting('accessibilityPermissionsGranted', 'false')
+        } else {
+          console.log('✅ Accessibility permissions already granted')
+          await db.setSetting('accessibilityPermissionsGranted', 'true')
+        }
+      } else {
+        console.log('⚠️ systemPreferences.isTrustedAccessibilityClient not available')
+        await db.setSetting('accessibilityPermissionsGranted', 'unknown')
+      }
+    } catch (error) {
+      console.error('Error checking accessibility permissions:', error)
+      await db.setSetting('accessibilityPermissionsGranted', 'error')
     }
   }
 }

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Temporarily disable App Sandbox for testing -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+    
+    <!-- Network access for updates and sync -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    
+    <!-- File access for user-selected files -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    
+    <!-- Downloads folder access for export -->
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+    
+    <!-- Apple Events for clipboard access and app communication -->
+    <key>com.apple.security.automation.apple-events</key>
+    <array>
+      <string>com.apple.systemevents</string>
+      <string>com.apple.finder</string>
+    </array>
+
+    <!-- Accessibility API access for clipboard monitoring -->
+    <key>com.apple.security.personal-information.accessibility</key>
+    <true/>
+
+    <!-- Device access for clipboard monitoring -->
+    <key>com.apple.security.device.clipboard</key>
+    <true/>
+    
+    <!-- Temporary exception for absolute path access (may be needed for clipboard files) -->
+    <key>com.apple.security.temporary-exception.files.absolute-path.read-only</key>
+    <array>
+      <string>/System/Library/CoreServices/SystemUIServer.app</string>
+      <string>/usr/bin</string>
+    </array>
+    
+    <!-- Print access if needed -->
+    <key>com.apple.security.print</key>
+    <true/>
+  </dict>
+</plist> 
