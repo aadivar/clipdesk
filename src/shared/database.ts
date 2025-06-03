@@ -274,7 +274,20 @@ class Database {
           }
         });
         console.log('✅ Updated existing item:', updatedItem.id);
-        return updatedItem;
+        // Map snake_case database fields to camelCase for frontend
+        return {
+          ...updatedItem,
+          contentType: updatedItem.content_type,
+          sourceApp: updatedItem.source_app,
+          createdAt: updatedItem.created_at,
+          accessedAt: updatedItem.accessed_at,
+          accessCount: updatedItem.access_count,
+          isFavorite: updatedItem.is_favorite,
+          isDeleted: updatedItem.is_deleted,
+          rawContent: updatedItem.raw_content,
+          contentHash: updatedItem.content_hash,
+          metadata: updatedItem.metadata ? JSON.parse(updatedItem.metadata) : null
+        };
       }
 
       // Create new item
@@ -296,7 +309,20 @@ class Database {
       });
 
       console.log('✅ Created new clipboard item:', newItem.id);
-      return newItem;
+      // Map snake_case database fields to camelCase for frontend
+      return {
+        ...newItem,
+        contentType: newItem.content_type,
+        sourceApp: newItem.source_app,
+        createdAt: newItem.created_at,
+        accessedAt: newItem.accessed_at,
+        accessCount: newItem.access_count,
+        isFavorite: newItem.is_favorite,
+        isDeleted: newItem.is_deleted,
+        rawContent: newItem.raw_content,
+        contentHash: newItem.content_hash,
+        metadata: newItem.metadata ? JSON.parse(newItem.metadata) : null
+      };
     } catch (error) {
       console.error('❌ Error adding clipboard item:', error);
       throw error;
@@ -341,6 +367,16 @@ class Database {
 
       return items.map((item: any) => ({
         ...item,
+        // Map snake_case database fields to camelCase for frontend
+        contentType: item.content_type,
+        sourceApp: item.source_app,
+        createdAt: item.created_at,
+        accessedAt: item.accessed_at,
+        accessCount: item.access_count,
+        isFavorite: item.is_favorite,
+        isDeleted: item.is_deleted,
+        rawContent: item.raw_content,
+        contentHash: item.content_hash,
         tags: item.tags.map((t: any) => t.tag),
         metadata: item.metadata ? JSON.parse(item.metadata) : null
       }));
@@ -389,7 +425,20 @@ class Database {
         data: { is_favorite: !item.is_favorite }
       });
 
-      return updatedItem;
+      // Map snake_case database fields to camelCase for frontend
+      return {
+        ...updatedItem,
+        contentType: updatedItem.content_type,
+        sourceApp: updatedItem.source_app,
+        createdAt: updatedItem.created_at,
+        accessedAt: updatedItem.accessed_at,
+        accessCount: updatedItem.access_count,
+        isFavorite: updatedItem.is_favorite,
+        isDeleted: updatedItem.is_deleted,
+        rawContent: updatedItem.raw_content,
+        contentHash: updatedItem.content_hash,
+        metadata: updatedItem.metadata ? JSON.parse(updatedItem.metadata) : null
+      };
     } catch (error) {
       console.error('Error toggling favorite:', error);
       throw error;

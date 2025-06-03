@@ -556,11 +556,13 @@ export class ClipboardMonitor extends EventEmitter {
       
       // Store in database
       console.log('💾 Calling db.addClipboardItem...')
+      console.log('📝 Metadata:', content.metadata)
       const result = await db.addClipboardItem(
         content.content,
         content.type,
         sourceApp,
-        content.rawContent
+        content.rawContent,
+        content.metadata
       );
       
       console.log('✅ Database item added successfully:', result);
