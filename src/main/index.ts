@@ -729,6 +729,20 @@ class ClipDeskApp {
       }
     })
 
+    ipcMain.handle('clipboard-get-source-apps', async () => {
+      try {
+        // Check if database is initialized
+        if (!db.isInitialized()) {
+          console.warn('Database not initialized, returning empty array for source apps')
+          return []
+        }
+        return await db.getUniqueSourceApps()
+      } catch (error) {
+        console.error('Error getting unique source apps:', error)
+        return [] // Return empty array instead of throwing
+      }
+    })
+
     ipcMain.handle('clipboard-toggle-favorite', async (event, id: string) => {
       try {
         return await db.toggleFavorite(id)

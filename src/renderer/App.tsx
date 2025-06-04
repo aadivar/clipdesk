@@ -480,6 +480,46 @@ const SearchInput = styled.input`
   }
 `
 
+const FilterContainer = styled.div`
+  display: flex;
+  gap: ${props => props.theme.spacing.md};
+  align-items: center;
+  margin-top: ${props => props.theme.spacing.md};
+`
+
+const FilterSelect = styled.select`
+  padding: ${props => props.theme.spacing.sm} ${props => props.theme.spacing.md};
+  border: 1px solid ${props => props.theme.colors.searchBorder};
+  border-radius: ${props => props.theme.borderRadius.md};
+  font-size: 14px;
+  font-weight: 400;
+  background-color: ${props => props.theme.colors.searchBg};
+  color: ${props => props.theme.colors.text};
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-app-region: no-drag;
+  font-family: ${props => props.theme.typography.fontFamily};
+  cursor: pointer;
+  min-width: 150px;
+
+  &:focus {
+    outline: none;
+    border-color: ${props => props.theme.colors.searchFocus};
+    background-color: ${props => props.theme.colors.background};
+    box-shadow: 0 0 0 2px ${props => props.theme.colors.accentLight};
+  }
+
+  &:hover {
+    border-color: ${props => props.theme.colors.searchFocus};
+  }
+`
+
+const FilterLabel = styled.label`
+  font-size: 14px;
+  font-weight: 500;
+  color: ${props => props.theme.colors.textSecondary};
+  white-space: nowrap;
+`
+
 const ContentArea = styled.div`
   flex: 1;
   padding: ${props => props.theme.spacing.xl} ${props => props.theme.spacing.xxl};
@@ -1010,6 +1050,8 @@ interface ClipboardItemData {
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedSourceApp, setSelectedSourceApp] = useState<string>('all')
+  const [availableSourceApps, setAvailableSourceApps] = useState<string[]>([])
   const [clipboardItems, setClipboardItems] = useState<ClipboardItemData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -1080,6 +1122,12 @@ const App: React.FC = () => {
             const history = await window.clipdesk.clipboard.getHistory({ limit: 100 })
             console.log('✅ Loaded history:', history?.length || 0, 'items')
             setClipboardItems(history || [])
+
+            // Load available source apps
+            console.log('🔧 Loading source apps...')
+            const sourceApps = await window.clipdesk.clipboard.getSourceApps()
+            console.log('✅ Loaded source apps:', sourceApps?.length || 0, 'apps')
+            setAvailableSourceApps(sourceApps || [])
           } else {
             setError('ClipDesk API not available')
           }
@@ -1142,15 +1190,25 @@ const App: React.FC = () => {
           setClipboardItems(prev => {
             // Check for duplicates by ID to prevent double entries
             const isDuplicate = prev.some(item => item.id === newItem.id)
-            
+
             if (isDuplicate) {
               console.log('⚠️ Duplicate item detected, skipping')
               return prev
             }
-            
+
             console.log('🔄 Updating clipboard items state, new count will be:', prev.length + 1)
             return [newItem, ...prev]
           })
+
+          // Update source apps list if we have a new source app
+          if (newItem.sourceApp && newItem.sourceApp !== 'Unknown') {
+            setAvailableSourceApps(prev => {
+              if (!prev.includes(newItem.sourceApp!)) {
+                return [...prev, newItem.sourceApp!].sort()
+              }
+              return prev
+            })
+          }
         } catch (err) {
           console.error('❌ Error processing clipboard change:', err)
           console.error('Problematic data:', data)
@@ -1226,6 +1284,14 @@ const App: React.FC = () => {
         // Reload clipboard items to reflect the changes
         const history = await window.clipdesk.clipboard.getHistory({ limit: 100 })
         setClipboardItems(history || [])
+
+        // Reload source apps list
+        const sourceApps = await window.clipdesk.clipboard.getSourceApps()
+        setAvailableSourceApps(sourceApps || [])
+
+        // Reset source app filter
+        setSelectedSourceApp('all')
+
         console.log('Clipboard history cleared')
       } catch (error) {
         console.error('Failed to clear history:', error)
@@ -1242,6 +1308,13 @@ const App: React.FC = () => {
         }
         await window.clipdesk.clipboard.clearHistory()
         setClipboardItems([])
+
+        // Clear source apps list
+        setAvailableSourceApps([])
+
+        // Reset source app filter
+        setSelectedSourceApp('all')
+
         console.log('All clipboard history cleared')
       } catch (error) {
         console.error('Failed to clear everything:', error)
@@ -1251,22 +1324,25 @@ const App: React.FC = () => {
 
   const filteredItems = clipboardItems.filter(item => {
     const matchesSearch = item.content.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSourceApp = selectedSourceApp === 'all' || item.sourceApp === selectedSourceApp
 
-    if (activeView === 'all') return matchesSearch
+    const baseFilter = matchesSearch && matchesSourceApp
+
+    if (activeView === 'all') return baseFilter
     if (activeView === 'recent') {
       const now = Date.now()
       const recentlyCreated = now - new Date(item.createdAt).getTime() < 6 * 60 * 60 * 1000 // 6 hours
       const recentlyAccessed = now - new Date(item.accessedAt).getTime() < 24 * 60 * 60 * 1000 // 24 hours
-      return matchesSearch && (recentlyCreated || recentlyAccessed)
+      return baseFilter && (recentlyCreated || recentlyAccessed)
     }
-    if (activeView === 'text') return matchesSearch && item.contentType === 'text'
-    if (activeView === 'images') return matchesSearch && item.contentType === 'image'
-    if (activeView === 'files') return matchesSearch && item.contentType === 'file'
-    if (activeView === 'links') return matchesSearch && item.contentType === 'link'
-    if (activeView === 'sensitive') return matchesSearch && item.isSensitive
-    if (activeView === 'favorites') return matchesSearch && item.isFavorite
+    if (activeView === 'text') return baseFilter && item.contentType === 'text'
+    if (activeView === 'images') return baseFilter && item.contentType === 'image'
+    if (activeView === 'files') return baseFilter && item.contentType === 'file'
+    if (activeView === 'links') return baseFilter && item.contentType === 'link'
+    if (activeView === 'sensitive') return baseFilter && item.isSensitive
+    if (activeView === 'favorites') return baseFilter && item.isFavorite
 
-    return matchesSearch
+    return baseFilter
   })
 
   const formatTimeAgo = (dateString: string) => {
@@ -1567,6 +1643,22 @@ const App: React.FC = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </SearchInputContainer>
+
+              {availableSourceApps.length > 0 && (
+                <FilterContainer>
+                  <FilterLabel htmlFor="source-app-filter">Filter by app:</FilterLabel>
+                  <FilterSelect
+                    id="source-app-filter"
+                    value={selectedSourceApp}
+                    onChange={(e) => setSelectedSourceApp(e.target.value)}
+                  >
+                    <option value="all">All Apps</option>
+                    {availableSourceApps.map(app => (
+                      <option key={app} value={app}>{app}</option>
+                    ))}
+                  </FilterSelect>
+                </FilterContainer>
+              )}
             </SearchBar>
 
             <ContentArea>

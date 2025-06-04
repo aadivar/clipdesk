@@ -561,6 +561,35 @@ class Database {
     }
   }
 
+  // Get unique source apps for filtering
+  async getUniqueSourceApps() {
+    try {
+      const result = await this.client.clipboardItem.findMany({
+        where: {
+          is_deleted: false,
+          source_app: {
+            not: null
+          }
+        },
+        select: {
+          source_app: true
+        },
+        distinct: ['source_app'],
+        orderBy: {
+          source_app: 'asc'
+        }
+      });
+
+      return result
+        .map((item: any) => item.source_app)
+        .filter((app: string | null) => app && app !== 'Unknown')
+        .sort();
+    } catch (error) {
+      console.error('Error getting unique source apps:', error);
+      throw error;
+    }
+  }
+
   // Utility methods
   private generateContentHash(content: string): string {
     // Simple hash function for content deduplication

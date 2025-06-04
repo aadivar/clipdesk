@@ -619,58 +619,122 @@ export class ClipboardMonitor extends EventEmitter {
 
   private async getSourceApplication(): Promise<string | null> {
     try {
-      // Basic source app detection using Electron APIs
-      const { BrowserWindow } = require('electron');
-      const focusedWindow = BrowserWindow.getFocusedWindow();
-      
-      if (focusedWindow) {
-        const title = focusedWindow.getTitle();
-        
-        // Extract app name from window title patterns
-        if (title.includes('Visual Studio Code')) return 'Visual Studio Code';
-        if (title.includes('Chrome') || title.includes('Google Chrome')) return 'Google Chrome';
-        if (title.includes('Safari')) return 'Safari';
-        if (title.includes('Firefox')) return 'Firefox';
-        if (title.includes('Slack')) return 'Slack';
-        if (title.includes('Discord')) return 'Discord';
-        if (title.includes('Terminal')) return 'Terminal';
-        if (title.includes('iTerm')) return 'iTerm';
-        if (title.includes('Finder')) return 'Finder';
-        if (title.includes('Notes')) return 'Notes';
-        if (title.includes('TextEdit')) return 'TextEdit';
-        if (title.includes('Word')) return 'Microsoft Word';
-        if (title.includes('Excel')) return 'Microsoft Excel';
-        if (title.includes('PowerPoint')) return 'Microsoft PowerPoint';
-        if (title.includes('Notion')) return 'Notion';
-        if (title.includes('Figma')) return 'Figma';
-        if (title.includes('Adobe')) return 'Adobe';
-        
-        // If we can't identify from title, return the title itself (truncated)
-        return title.length > 30 ? title.substring(0, 30) + '...' : title;
-      }
-      
-      // Alternative: Try to get frontmost application (macOS specific)
+      // For macOS, use AppleScript to get the frontmost application
       if (process.platform === 'darwin') {
         try {
           const { execSync } = require('child_process');
-          const frontmostApp = execSync(
-            'osascript -e "tell application \\"System Events\\" to get name of first application process whose frontmost is true"',
-            { encoding: 'utf8', timeout: 1000 }
-          ).trim();
-          
-          if (frontmostApp && frontmostApp !== 'ClipDesk') {
-            return frontmostApp;
+
+          // Get the frontmost application name and bundle identifier
+          const frontmostAppScript = `
+            tell application "System Events"
+              set frontApp to first application process whose frontmost is true
+              set appName to name of frontApp
+              set bundleId to bundle identifier of frontApp
+              return appName & "|" & bundleId
+            end tell
+          `;
+
+          const result = execSync(`osascript -e '${frontmostAppScript}'`, {
+            encoding: 'utf8',
+            timeout: 2000
+          }).trim();
+
+          const [appName, bundleId] = result.split('|');
+
+          // Skip if it's our own app
+          if (appName === 'ClipDesk' || bundleId === 'com.clipdesk.app') {
+            return 'Unknown';
           }
+
+          // Map common Electron apps to their proper names using bundle ID
+          const electronAppMappings: { [key: string]: string } = {
+            'com.microsoft.VSCode': 'Visual Studio Code',
+            'com.electron.vscode': 'Visual Studio Code',
+            'com.github.atom': 'Atom',
+            'com.slack.Slack': 'Slack',
+            'com.hnc.Discord': 'Discord',
+            'com.spotify.client': 'Spotify',
+            'com.figma.Desktop': 'Figma',
+            'notion.id': 'Notion',
+            'com.notion.desktop': 'Notion',
+            'com.postmanlabs.mac': 'Postman',
+            'com.microsoft.teams': 'Microsoft Teams',
+            'com.microsoft.teams2': 'Microsoft Teams',
+            'com.whatsapp.desktop': 'WhatsApp',
+            'com.tinyspeck.slackmacgap': 'Slack',
+            'com.electron.reeder.': 'Reeder',
+            'com.sindresorhus.Caprine': 'Caprine',
+            'com.github.GitHubDesktop': 'GitHub Desktop'
+          };
+
+          // Check if we have a specific mapping for this bundle ID
+          if (bundleId && electronAppMappings[bundleId]) {
+            return electronAppMappings[bundleId];
+          }
+
+          // For other Electron apps, try to extract meaningful name from app name
+          if (bundleId && bundleId.includes('electron')) {
+            // If it's an Electron app but not in our mapping, use the app name
+            return this.cleanAppName(appName);
+          }
+
+          // Return the cleaned app name for non-Electron apps
+          return this.cleanAppName(appName);
+
         } catch (e) {
-          // osascript failed, continue with fallback
+          console.error('AppleScript failed:', e);
+          // Fall back to basic detection
         }
       }
-      
+
+      // Fallback for other platforms or if AppleScript fails
+      const { BrowserWindow } = require('electron');
+      const focusedWindow = BrowserWindow.getFocusedWindow();
+
+      if (focusedWindow) {
+        const title = focusedWindow.getTitle();
+        return this.extractAppNameFromTitle(title);
+      }
+
       return 'Unknown';
     } catch (error) {
       console.error('Error detecting source app:', error);
       return 'Unknown';
     }
+  }
+
+  private cleanAppName(appName: string): string {
+    // Remove common suffixes and clean up app names
+    const cleanName = appName
+      .replace(/\s+Helper.*$/i, '') // Remove "Helper" suffixes
+      .replace(/\s+\(.*\)$/i, '') // Remove parenthetical info
+      .trim();
+
+    return cleanName || 'Unknown';
+  }
+
+  private extractAppNameFromTitle(title: string): string {
+    // Extract app name from window title patterns
+    if (title.includes('Visual Studio Code')) return 'Visual Studio Code';
+    if (title.includes('Chrome') || title.includes('Google Chrome')) return 'Google Chrome';
+    if (title.includes('Safari')) return 'Safari';
+    if (title.includes('Firefox')) return 'Firefox';
+    if (title.includes('Slack')) return 'Slack';
+    if (title.includes('Discord')) return 'Discord';
+    if (title.includes('Terminal')) return 'Terminal';
+    if (title.includes('iTerm')) return 'iTerm';
+    if (title.includes('Finder')) return 'Finder';
+    if (title.includes('Notes')) return 'Notes';
+    if (title.includes('TextEdit')) return 'TextEdit';
+    if (title.includes('Word')) return 'Microsoft Word';
+    if (title.includes('Excel')) return 'Microsoft Excel';
+    if (title.includes('PowerPoint')) return 'Microsoft PowerPoint';
+    if (title.includes('Notion')) return 'Notion';
+    if (title.includes('Figma')) return 'Figma';
+    if (title.includes('Adobe')) return 'Adobe';
+
+    // If we can't identify from title, return the title itself (truncated)
+    return title.length > 30 ? title.substring(0, 30) + '...' : title;
   }
 
   private async loadExcludedApps(): Promise<void> {

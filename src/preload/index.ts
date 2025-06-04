@@ -71,6 +71,7 @@ interface ClipDeskAPI {
       contentType?: string
       searchQuery?: string
     }) => Promise<any[]>
+    getSourceApps: () => Promise<string[]>
     toggleFavorite: (id: string) => Promise<any>
     deleteItem: (id: string) => Promise<{ success: boolean }>
     clearHistory: () => Promise<{ success: boolean }>
@@ -158,6 +159,7 @@ const api: ClipDeskAPI = {
 
   clipboard: {
     getHistory: (options = {}) => ipcRenderer.invoke('clipboard-get-items', options),
+    getSourceApps: () => ipcRenderer.invoke('clipboard-get-source-apps'),
     toggleFavorite: (id: string) => ipcRenderer.invoke('clipboard-toggle-favorite', id),
     deleteItem: (id: string) => ipcRenderer.invoke('clipboard-delete-item', id),
     clearHistory: () => ipcRenderer.invoke('clipboard-clear-history'),
