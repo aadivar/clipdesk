@@ -1,267 +1,337 @@
-# ClipDesk - Local-First Clipboard Manager
+# ClipDesk 📋
 
-> A beautiful, local-first clipboard manager for Mac, Windows, and Linux inspired by Things app design and pasteapp.io functionality.
+A beautiful, local-first clipboard manager for Mac, Windows, and Linux inspired by Things app design and pasteapp.io functionality.
 
-## 🎯 Project Vision
+![ClipDesk Screenshot](https://via.placeholder.com/800x500/007AFF/FFFFFF?text=ClipDesk+Screenshot)
 
-ClipDesk aims to be the **most elegant and powerful local-first clipboard manager** that combines the intuitive design philosophy of Things app with the comprehensive clipboard management features of pasteapp.io - without any cloud dependencies.
+## ✨ Features
 
-## 🚀 MVP Feature Set
+### 🎯 **Core Functionality**
+- **📋 Clipboard History** - Automatically saves all copied text, images, files, and links
+- **🔍 Smart Search** - Find anything in your clipboard history instantly
+- **⭐ Favorites** - Mark important items to keep them forever
+- **🏷️ Tags & Organization** - Categorize and organize your clipboard items
+- **📝 Text Snippets** - Save and reuse frequently used text snippets
+- **🔒 Sensitive Data Detection** - Automatically identifies and handles passwords/credit cards
 
-### 📋 Core Clipboard Management
+### 🎨 **Beautiful Design**
+- **Things-inspired UI** - Clean, modern interface with attention to detail
+- **🌙 Dark/Light Mode** - Seamless theme switching
+- **📱 Native Feel** - Platform-native design on macOS, Windows, and Linux
+- **⚡ Smooth Animations** - Fluid transitions and micro-interactions
 
-#### **Infinite Clipboard History**
-- Automatically capture all clipboard content (text, images, files, rich text)
-- Local SQLite database storage (no cloud required)
-- Smart deduplication to avoid storing identical items
-- Configurable history limit (default: 10,000 items)
-- Instant access to clipboard history via global hotkey
+### 🔄 **Hybrid App Behavior**
+- **🔧 Menubar Integration** - Always accessible from system tray
+- **⌨️ Global Shortcuts** - `Cmd+Shift+V` to open instantly
+- **🚀 Launch at Login** - Start automatically when you log in
+- **👻 Dock Management** - Hides from dock when closed, stays in menubar
 
-#### **Content Type Support**
-- **Text**: Plain text, rich text, code snippets
-- **Images**: PNG, JPEG, GIF, TIFF, WebP
-- **Files**: File paths and metadata
-- **Links**: URLs with automatic metadata extraction
-- **Colors**: Hex codes, RGB values
-- **Custom formats**: Developer-friendly for various data types
+### 🔄 **Auto-Updates**
+- **📦 Automatic Updates** - Users get new versions automatically
+- **🔔 Smart Notifications** - Non-intrusive update prompts
+- **📝 Release Notes** - View what's new in each update
+- **⬇️ Background Downloads** - Updates download silently
+- **🔄 One-Click Install** - Restart to install updates
 
-### 🎨 Things-Inspired Design Language
+## 🚀 Quick Start
 
-#### **Visual Aesthetics**
-- **Clean & Minimalist**: Generous white space, crisp typography
-- **Beautiful Animations**: Smooth, purposeful transitions (inspired by Things' animation toolkit)
-- **Elegant Typography**: San Francisco font family, clear hierarchies
-- **Subtle Shadows & Depth**: Card-based layout with tasteful elevation
-- **Progress Indicators**: Subtle visual feedback for actions
+### Prerequisites
+- **Node.js** 20+ 
+- **npm** or **yarn**
+- **Git**
 
-#### **Color Palette**
-- **Primary**: Soft blues and whites (Things-inspired)
-- **Accents**: Carefully chosen accent colors for different content types
-- **Dark Mode**: True dark theme with deep grays and subtle highlights
-- **System Integration**: Respects system appearance preferences
+### Installation
 
-#### **Interface Elements**
-- **Magic Plus Button**: Floating action button for quick actions
-- **Smooth List Views**: Fluid scrolling with elastic bounce
-- **Contextual Menus**: Right-click context with beautiful popover design
-- **Search Bar**: Prominent, fast search with live results
+```bash
+# Clone the repository
+git clone https://github.com/your-username/clipdesk.git
+cd clipdesk
 
-### 🔍 Smart Search & Organization
+# Install dependencies
+npm install
 
-#### **Instant Search**
-- **Live Search**: Results update as you type (similar to Things' Quick Find)
-- **Content Search**: Search within text content, not just titles
-- **Metadata Search**: Search by app source, timestamp, content type
-- **Fuzzy Matching**: Intelligent search that handles typos
+# Generate Prisma client
+npm run prisma:generate
 
-#### **Smart Categories & Tags**
-- **Auto-tagging**: Automatically tag content by source app
-- **Custom Tags**: User-defined tags for manual organization
-- **Smart Collections**: Dynamic lists based on criteria (e.g., "Last 24 hours", "Images only")
-- **Favorites**: Pin frequently used items for quick access
+# Start development server
+npm run electron:dev
+```
 
-### 🎯 Productivity Features
+The app will open automatically and start monitoring your clipboard!
 
-#### **Quick Actions**
-- **One-Click Paste**: Instant paste with single click/keyboard shortcut
-- **Format Options**: Paste as plain text, rich text, or original format
-- **Bulk Operations**: Select multiple items for batch actions
-- **Preview Mode**: Quick preview without pasting
+## 🛠️ Development
 
-#### **Smart Snippets**
-- **Text Expansion**: Create shortcuts for frequently used text
-- **Template System**: Save and reuse formatted text templates
-- **Variables**: Dynamic content insertion (date, time, username)
-- **Snippet Collections**: Organize snippets by project or context
+### Available Scripts
 
-### ⚡ System Integration
+```bash
+# Development
+npm run dev                    # Start Vite dev server
+npm run electron:dev          # Start app in development mode
 
-#### **Global Hotkeys**
-- **Main Window**: Cmd/Ctrl + Shift + V to open ClipDesk
-- **Quick Paste**: Cmd/Ctrl + Shift + Number for top 9 items
-- **Search Mode**: Cmd/Ctrl + Shift + F for instant search
-- **Last Item**: Cmd/Ctrl + Shift + L for most recent item
+# Building
+npm run build                 # Build for production
+npm run build:debug          # Build without packaging
+npm run build:mac            # Build for macOS only
+npm run build:win            # Build for Windows only
+npm run build:linux          # Build for Linux only
 
-#### **Menu Bar Integration**
-- **Discrete Menu Bar Icon**: Minimal, unobtrusive presence
-- **Quick Preview**: Hover to see recent items
-- **Status Indicators**: Visual feedback for clipboard monitoring status
-- **Quick Settings**: Easy access to preferences
+# Database
+npm run prisma:generate       # Generate Prisma client
+npm run prisma:migrate        # Run database migrations
 
-### 🔒 Privacy & Security
+# Code Quality
+npm run lint                  # Run ESLint
+npm run format               # Format code with Prettier
+npm run type-check           # Check TypeScript types
+npm run test                 # Run tests
+```
 
-#### **Local-First Architecture**
-- **No Cloud Sync**: Everything stored locally on user's machine
-- **Encrypted Storage**: Local database encryption for sensitive content
-- **App Exclusions**: Blacklist sensitive apps (password managers, banking apps)
-- **Auto-cleanup**: Automatic deletion of old items based on user preferences
+### Project Structure
 
-#### **Privacy Controls**
-- **Incognito Mode**: Temporary disable clipboard monitoring
-- **Sensitive Content Detection**: Auto-detect and exclude passwords, credit cards
-- **Manual Cleanup**: Easy selection and deletion of items
-- **Data Export**: Export clipboard history for backup purposes
+```
+clipdesk/
+├── src/
+│   ├── main/                 # Electron main process
+│   │   ├── index.ts         # Main entry point
+│   │   ├── autoUpdater.ts   # Auto-update functionality
+│   │   └── clipboardMonitor.ts # Clipboard monitoring
+│   ├── preload/             # Electron preload scripts
+│   │   └── index.ts         # IPC API definitions
+│   ├── renderer/            # React frontend
+│   │   ├── App.tsx          # Main React component
+│   │   └── components/      # UI components
+│   └── shared/              # Shared utilities
+│       └── database.ts      # Database layer
+├── assets/                  # App icons and resources
+├── prisma/                  # Database schema
+└── dist/                    # Built files
+```
 
-### 🖥️ Cross-Platform Consistency
+## 🔄 Auto-Updates & Releases
 
-#### **Native Feel on Each Platform**
-- **macOS**: Cocoa-native with Things-like polish
-- **Windows**: Fluent Design integration with consistent ClipDesk aesthetics
-- **Linux**: Clean, modern interface respecting desktop environment themes
+### How Auto-Updates Work
 
-#### **Platform-Specific Features**
-- **macOS**: Touch Bar support, Spotlight integration
-- **Windows**: Windows Search integration, notification center
-- **Linux**: Desktop environment integration (GNOME, KDE, etc.)
+ClipDesk uses **electron-updater** with **GitHub Releases** for professional-grade automatic updates:
 
-### ⚙️ Advanced Configuration
+#### **For Users:**
+1. ✅ App automatically checks for updates on startup
+2. ✅ Notification appears when update is available  
+3. ✅ User can download, view release notes, or skip
+4. ✅ Downloads update in background with progress
+5. ✅ Prompts to restart when ready
+6. ✅ Seamless installation on restart
 
-#### **Customization Options**
-- **Appearance**: Light/dark mode, accent colors, font sizes
-- **Behavior**: Auto-paste settings, notification preferences
-- **Storage**: History limits, auto-cleanup schedules
-- **Hotkeys**: Fully customizable keyboard shortcuts
+#### **For Developers:**
+1. ✅ Create GitHub release with version tag
+2. ✅ GitHub Actions builds for all platforms automatically
+3. ✅ Uploads installers to GitHub Releases
+4. ✅ Users get notified and can update
 
-#### **Power User Features**
-- **AppleScript/PowerShell Support**: Automation capabilities
-- **URL Scheme**: Deep linking for third-party app integration
-- **Plugin Architecture**: Extensibility for custom content processors
-- **Export/Import**: Settings and data portability
+### Publishing Updates
 
-## 📐 Technical Architecture
+#### **Method 1: Automatic (Recommended)**
+```bash
+# Update version and create tag
+npm version patch    # Bug fixes (0.1.0 → 0.1.1)
+npm version minor    # New features (0.1.1 → 0.2.0)  
+npm version major    # Breaking changes (0.2.0 → 1.0.0)
 
-### **Technology Stack**
-- **Framework**: Electron for cross-platform compatibility
-- **Frontend**: React with TypeScript for type safety
-- **Styling**: Styled Components with Framer Motion for animations
-- **Database**: SQLite for local data storage
-- **Native Modules**: Node.js native addons for clipboard monitoring
+# Push to trigger release
+git push origin main --tags
+```
 
-### **Performance Priorities**
-- **Fast Startup**: < 500ms app launch time
-- **Instant Search**: < 100ms search result updates
-- **Low Memory**: Efficient memory usage with smart caching
-- **Battery Friendly**: Minimal background processing impact
+#### **Method 2: Manual GitHub Release**
+1. Go to GitHub → Releases → "Create a new release"
+2. Create tag: `v1.0.1`
+3. GitHub Actions will build automatically
 
-## 🎯 Success Metrics for MVP
+#### **Method 3: Direct Build & Publish**
+```bash
+npm run release         # Build and publish all platforms
+npm run publish:mac     # Publish macOS only
+npm run publish:win     # Publish Windows only
+npm run publish:all     # Publish all platforms
+```
 
-### **User Experience Goals**
-- Users can access any clipboard item within 3 seconds
-- Zero learning curve for basic copy/paste workflow
-- Beautiful enough that users enjoy opening the app
-- 99.9% clipboard capture reliability
+### ⚠️ Important: Regular Pushes vs Releases
 
-### **Technical Goals**
-- Cross-platform build system working smoothly
-- Local database handling 10,000+ items without performance degradation
-- Native system integration feeling seamless
-- Robust error handling and crash recovery
+```bash
+# ❌ This will NOT trigger updates for users (safe for development)
+git add .
+git commit -m "fix bug"
+git push origin main
 
-## 🛣️ Future Feature Considerations (Post-MVP)
+# ✅ This WILL trigger updates for users (when you're ready to release)
+npm version patch
+git push origin main --tags
+```
 
-### **Advanced Features**
-- **Smart Collections**: AI-powered content organization
-- **Clipboard Synchronization**: Optional local network sync between devices
-- **Advanced Search**: Regex support, saved searches
-- **Collaboration**: Share clipboard collections with team members (local network)
-- **OCR Integration**: Extract text from images
-- **Translation**: Built-in translation for text content
+This gives you **full control** over when users receive updates while allowing frequent development.
 
-### **Developer Features**
-- **API Access**: Local API for third-party integrations
-- **Custom Processors**: User-defined content transformation plugins
-- **Workflow Integration**: Zapier/IFTTT-style automation
-- **Command Line Interface**: Terminal access for power users
+## 🔧 Configuration
 
-## 🏗️ Development Phases
+### Repository Setup
 
-### **Phase 1: Foundation (MVP)**
-- Core clipboard monitoring and storage
-- Basic UI with Things-inspired design
-- Essential search functionality
-- Cross-platform builds
+1. **Update package.json** with your GitHub details:
+```json
+{
+  "build": {
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR_GITHUB_USERNAME",
+        "repo": "clipdesk"
+      }
+    ]
+  }
+}
+```
 
-### **Phase 2: Polish & Optimization**
-- Advanced animations and interactions
-- Performance optimizations
-- Comprehensive testing across platforms
-- User feedback integration
+2. **GitHub Actions Secrets** (Optional - for code signing):
+   - `MAC_CERTS`: Base64 encoded .p12 certificate
+   - `MAC_CERTS_PASSWORD`: Certificate password
+   - `APPLE_ID`: Your Apple ID email
+   - `APPLE_APP_SPECIFIC_PASSWORD`: App-specific password
+   - `APPLE_TEAM_ID`: Your Apple Developer Team ID
 
-### **Phase 3: Power Features**
-- Advanced organization features
-- Plugin architecture
-- Automation capabilities
-- Professional user features
+### App Settings
+
+Users can configure:
+- **🚀 Launch at Login** - Start automatically
+- **📋 History Retention** - How long to keep clipboard items
+- **🔔 Notifications** - Update and clipboard notifications
+- **🎨 Theme** - Dark/Light mode preference
+- **🔧 Menubar Mode** - Always run in background
+
+## 🏗️ Build System
+
+### Multi-Platform Support
+
+ClipDesk builds for all major platforms:
+
+- **🍎 macOS**: DMG and ZIP (Universal: Intel + Apple Silicon)
+- **🪟 Windows**: NSIS Installer and ZIP (x64 + x86)
+- **🐧 Linux**: AppImage and tar.gz (x64)
+
+### Build Targets
+
+```json
+{
+  "mac": {
+    "target": [
+      { "target": "dmg", "arch": ["x64", "arm64"] },
+      { "target": "zip", "arch": ["x64", "arm64"] }
+    ]
+  },
+  "win": {
+    "target": [
+      { "target": "nsis", "arch": ["x64", "ia32"] },
+      { "target": "zip", "arch": ["x64", "ia32"] }
+    ]
+  },
+  "linux": {
+    "target": [
+      { "target": "AppImage", "arch": ["x64"] },
+      { "target": "tar.gz", "arch": ["x64"] }
+    ]
+  }
+}
+```
+
+## 🔒 Security & Privacy
+
+### Local-First Architecture
+- **🏠 Local Database** - All data stored locally using SQLite
+- **🔒 No Cloud Sync** - Your clipboard data never leaves your device
+- **🛡️ Sensitive Data Protection** - Automatic detection of passwords/credit cards
+- **🔐 Secure Updates** - Cryptographically signed updates
+
+### Code Signing (Recommended)
+
+For production releases, code signing prevents security warnings:
+
+- **macOS**: Requires Apple Developer account ($99/year)
+- **Windows**: Requires code signing certificate
+- **Benefits**: Users won't see "untrusted developer" warnings
+
+## 📊 Tech Stack
+
+### Core Technologies
+- **⚡ Electron** - Cross-platform desktop framework
+- **⚛️ React** - Frontend UI framework  
+- **📘 TypeScript** - Type-safe development
+- **🎨 Styled Components** - CSS-in-JS styling
+- **🗄️ Prisma + SQLite** - Local database management
+
+### Build & Deploy
+- **📦 Electron Builder** - Application packaging
+- **🔄 electron-updater** - Automatic updates
+- **🤖 GitHub Actions** - CI/CD automation
+- **📂 GitHub Releases** - Distribution platform
+
+### Development Tools
+- **⚡ Vite** - Fast build tool and dev server
+- **🔍 ESLint** - Code linting
+- **💅 Prettier** - Code formatting
+- **🧪 Vitest** - Unit testing framework
+
+## 🎯 Roadmap
+
+### Near Term
+- [ ] **📱 Mobile Companion** - iOS/Android apps for clipboard sync
+- [ ] **🔗 Browser Extension** - Seamless web integration
+- [ ] **🤖 Smart Categorization** - AI-powered clipboard organization
+- [ ] **📊 Usage Analytics** - Clipboard usage insights
+
+### Future
+- [ ] **☁️ Optional Cloud Sync** - Cross-device clipboard sync
+- [ ] **🔌 Plugin System** - Third-party integrations
+- [ ] **📝 Advanced Snippets** - Variables, scripts, and templates
+- [ ] **🎨 Custom Themes** - User-customizable appearances
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+
+1. **Fork and clone** the repository
+2. **Install dependencies**: `npm install`
+3. **Start development**: `npm run electron:dev`
+4. **Make changes** and test thoroughly
+5. **Submit pull request** with clear description
+
+### Code Style
+
+- **TypeScript** for all new code
+- **ESLint + Prettier** for formatting
+- **Conventional Commits** for commit messages
+- **Component tests** for new UI features
+
+## 📄 License
+
+This project is licensed under the **Commercial License**. See [LICENSE](LICENSE) for details.
+
+## 🙏 Acknowledgments
+
+- **Things by Cultured Code** - Design inspiration
+- **Pasteapp.io** - Functionality inspiration  
+- **Electron Community** - Excellent documentation and tools
+- **GitHub** - Free hosting and CI/CD platform
+
+## 📞 Support
+
+- **🐛 Bug Reports**: [GitHub Issues](https://github.com/your-username/clipdesk/issues)
+- **💡 Feature Requests**: [GitHub Discussions](https://github.com/your-username/clipdesk/discussions)
+- **📧 Email**: support@clipdesk.app
+- **🐦 Twitter**: [@ClipDeskApp](https://twitter.com/ClipDeskApp)
 
 ---
 
-## 💡 Design Philosophy
+<div align="center">
 
-**"Simple things should be simple, complex things should be possible"**
+**Made with ❤️ for productivity enthusiasts**
 
-ClipDesk follows the principle of progressive disclosure - offering a clean, simple interface for everyday use while providing powerful features for users who need them. Every interaction should feel natural and delightful, just like using a beautifully crafted physical tool.
+[Website](https://clipdesk.app) • [Download](https://github.com/your-username/clipdesk/releases) • [Documentation](https://docs.clipdesk.app)
 
-**Inspired by Things app**: Elegant animations, thoughtful interactions, beautiful typography, and attention to detail that makes productivity feel joyful.
-
-**Informed by pasteapp.io**: Comprehensive clipboard management features that truly enhance productivity without overwhelming the user.
-
----
-
-*This README serves as our north star for building ClipDesk - a clipboard manager that's both powerful and beautiful, respecting user privacy while delivering an exceptional experience.*
-
-Complete List of Sensitive Data Categories
-🔑 Authentication & API Keys
-Generic API Keys (api_key) - Medium confidence
-Patterns like api_key=, secret_key=, access_token=
-Stripe API Keys (stripe_key) - High confidence
-Secret keys: sk_live_*, sk_test_*
-Publishable keys: pk_live_*, pk_test_*
-Restricted keys: rk_live_*, rk_test_*
-AWS Access Keys (aws_key) - High confidence
-Access Key IDs: AKIA* (20 chars)
-Session Tokens: ASIA* (20 chars)
-Secret Access Keys (40 characters)
-GitHub Tokens (github_token) - High confidence
-Personal Access Tokens: ghp_*
-OAuth Tokens: gho_*
-User Tokens: ghu_*
-Server Tokens: ghs_*
-Refresh Tokens: ghr_*
-Google API Keys (google_api_key) - High confidence
-Pattern: AIza* (39 characters total)
-🎫 Tokens & Authentication
-JWT Tokens (jwt_token) - High confidence
-Base64 encoded tokens starting with eyJ
-Bearer Tokens (bearer_token) - High confidence
-Authorization headers: Bearer <token>
-OAuth Tokens (oauth_token) - Medium confidence
-OAuth tokens, access tokens, refresh tokens
-🔐 Cryptographic Materials
-Private Keys (private_key) - High confidence
-RSA, OpenSSH, EC, DSA private keys
-Encrypted private keys
-SSH Keys (ssh_key) - High confidence
-ssh-rsa, ssh-ed25519, ssh-dss, ecdsa-sha2-nistp*
-Certificates (certificate) - High confidence
-X.509 certificates, public keys
-🗄️ Database & Infrastructure
-Database URLs (database_url) - High confidence
-MongoDB, PostgreSQL, MySQL, Redis, SQLite connection strings
-💳 Financial & Personal Information
-Credit Card Numbers (credit_card) - High confidence
-Validated using Luhn algorithm (13-19 digits)
-Social Security Numbers (ssn) - Medium confidence
-Format: XXX-XX-XXXX or XXXXXXXXX
-🔒 Passwords
-Passwords (password) - Medium confidence
-Context-based detection: password=, pwd=, pass=
-Email:password combinations
-📊 Detection Confidence Levels:
-🔴 High Confidence: Private keys, certificates, JWT tokens, database URLs, credit cards, SSH keys, AWS keys, GitHub tokens, Stripe keys, Google API keys, bearer tokens
-🟡 Medium Confidence: Generic API keys, OAuth tokens, SSN, passwords
-🟢 Low Confidence: No current categories (used for non-matches)
-🛡️ Security Features:
-Content Redaction: Sensitive content is automatically redacted for display
-Configurable Detection: Can be enabled/disabled and set to strict/moderate/permissive levels
-Real-time Detection: All clipboard content is scanned as it's captured
-Multiple Pattern Matching: Uses regex patterns optimized for each data type
+</div>
