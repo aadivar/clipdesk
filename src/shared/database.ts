@@ -169,6 +169,9 @@ class Database {
           "raw_content" BLOB,
           "metadata" TEXT,
           "source_app" TEXT,
+          "is_sensitive" BOOLEAN NOT NULL DEFAULT false,
+          "sensitive_types" TEXT,
+          "sensitive_confidence" TEXT,
           "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "accessed_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "access_count" INTEGER NOT NULL DEFAULT 1,
@@ -249,7 +252,8 @@ class Database {
     contentType: 'text' | 'image' | 'file' | 'link' | 'color',
     sourceApp?: string,
     rawContent?: Buffer,
-    metadata?: any
+    metadata?: any,
+    sensitiveData?: { isSensitive: boolean; detectedTypes: string[]; confidence: string }
   ) {
     try {
       console.log('💾 Adding clipboard item to database...');
@@ -300,6 +304,9 @@ class Database {
           raw_content: rawContent,
           metadata: metadata ? JSON.stringify(metadata) : null,
           source_app: sourceApp,
+          is_sensitive: sensitiveData?.isSensitive || false,
+          sensitive_types: sensitiveData?.detectedTypes ? JSON.stringify(sensitiveData.detectedTypes) : null,
+          sensitive_confidence: sensitiveData?.confidence || null,
           created_at: new Date(),
           accessed_at: new Date(),
           access_count: 1,
@@ -314,6 +321,9 @@ class Database {
         ...newItem,
         contentType: newItem.content_type,
         sourceApp: newItem.source_app,
+        isSensitive: newItem.is_sensitive,
+        sensitiveTypes: newItem.sensitive_types ? JSON.parse(newItem.sensitive_types) : null,
+        sensitiveConfidence: newItem.sensitive_confidence,
         createdAt: newItem.created_at,
         accessedAt: newItem.accessed_at,
         accessCount: newItem.access_count,
@@ -370,6 +380,9 @@ class Database {
         // Map snake_case database fields to camelCase for frontend
         contentType: item.content_type,
         sourceApp: item.source_app,
+        isSensitive: item.is_sensitive,
+        sensitiveTypes: item.sensitive_types ? JSON.parse(item.sensitive_types) : null,
+        sensitiveConfidence: item.sensitive_confidence,
         createdAt: item.created_at,
         accessedAt: item.accessed_at,
         accessCount: item.access_count,
@@ -430,6 +443,9 @@ class Database {
         ...updatedItem,
         contentType: updatedItem.content_type,
         sourceApp: updatedItem.source_app,
+        isSensitive: updatedItem.is_sensitive,
+        sensitiveTypes: updatedItem.sensitive_types ? JSON.parse(updatedItem.sensitive_types) : null,
+        sensitiveConfidence: updatedItem.sensitive_confidence,
         createdAt: updatedItem.created_at,
         accessedAt: updatedItem.accessed_at,
         accessCount: updatedItem.access_count,

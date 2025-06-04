@@ -1,5 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react'
 import styled, { ThemeProvider, createGlobalStyle } from 'styled-components'
+import { SensitiveDataIndicator, SensitiveDataSettings } from './components/SensitiveDataIndicator'
 
 // Things-inspired theme definitions
 const lightTheme = {
@@ -998,6 +999,9 @@ interface ClipboardItemData {
   accessedAt: string
   accessCount: number
   isFavorite: boolean
+  isSensitive?: boolean
+  sensitiveTypes?: string[]
+  sensitiveConfidence?: 'low' | 'medium' | 'high'
   tags?: any[]
   metadata?: any
 }
@@ -1009,6 +1013,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDark, setIsDark] = useState(false)
+  const [showSensitiveDataSettings, setShowSensitiveDataSettings] = useState(false)
   const [settings, setSettings] = useState({
     retentionDays: '30',
     maxHistoryItems: '1000',
@@ -1236,7 +1241,7 @@ const App: React.FC = () => {
 
   const filteredItems = clipboardItems.filter(item => {
     const matchesSearch = item.content.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     if (activeView === 'all') return matchesSearch
     if (activeView === 'recent') {
       const now = Date.now()
@@ -1248,8 +1253,9 @@ const App: React.FC = () => {
     if (activeView === 'images') return matchesSearch && item.contentType === 'image'
     if (activeView === 'files') return matchesSearch && item.contentType === 'file'
     if (activeView === 'links') return matchesSearch && item.contentType === 'link'
+    if (activeView === 'sensitive') return matchesSearch && item.isSensitive
     if (activeView === 'favorites') return matchesSearch && item.isFavorite
-    
+
     return matchesSearch
   })
 
@@ -1301,6 +1307,7 @@ const App: React.FC = () => {
     { id: 'images', label: 'Images', icon: '🖼️', count: clipboardItems.filter(item => item.contentType === 'image').length },
     { id: 'files', label: 'Files', icon: '📁', count: clipboardItems.filter(item => item.contentType === 'file').length },
     { id: 'links', label: 'Links', icon: '🔗', count: clipboardItems.filter(item => item.contentType === 'link').length },
+    { id: 'sensitive', label: 'Sensitive', icon: '🔒', count: clipboardItems.filter(item => item.isSensitive).length },
     { id: 'favorites', label: 'Favorites', icon: '⭐', count: clipboardItems.filter(item => item.isFavorite).length },
   ]
 
@@ -1689,6 +1696,12 @@ const App: React.FC = () => {
                     <div className="meta">
                       <span className="type-badge">{item.contentType}</span>
                       <span className="source-app">{item.sourceApp || 'Unknown app'}</span>
+                      <SensitiveDataIndicator
+                        isSensitive={item.isSensitive}
+                        sensitiveTypes={item.sensitiveTypes}
+                        sensitiveConfidence={item.sensitiveConfidence}
+                        className="sensitive-indicator"
+                      />
                       <span className="timestamp">{formatTimeAgo(item.accessedAt)}</span>
                       {item.accessCount > 1 && (
                         <span className="usage-count">Used {item.accessCount} times</span>
@@ -1707,6 +1720,11 @@ const App: React.FC = () => {
             </ContentArea>
           </MainContent>
         </AppContainer>
+
+        {/* Sensitive Data Settings Modal */}
+        {showSensitiveDataSettings && (
+          <SensitiveDataSettings onClose={() => setShowSensitiveDataSettings(false)} />
+        )}
       </ThemeContext.Provider>
     </ThemeProvider>
   )

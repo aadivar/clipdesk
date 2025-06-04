@@ -13,18 +13,21 @@ datasource db {
 }
 
 model ClipboardItem {
-  id           String   @id @default(cuid())
-  content_hash String   @unique // For deduplication
-  content_type String   // 'text', 'image', 'file', 'link', 'color'
-  content      String   // Text representation or file path
-  raw_content  Bytes?   // Binary data for images/files
-  metadata     String?  // JSON string for additional data
-  source_app   String?  // App that created this clipboard item
-  created_at   DateTime @default(now())
-  accessed_at  DateTime @default(now())
-  access_count Int      @default(1)
-  is_favorite  Boolean  @default(false)
-  is_deleted   Boolean  @default(false)
+  id                   String   @id @default(cuid())
+  content_hash         String   @unique // For deduplication
+  content_type         String   // 'text', 'image', 'file', 'link', 'color'
+  content              String   // Text representation or file path
+  raw_content          Bytes?   // Binary data for images/files
+  metadata             String?  // JSON string for additional data
+  source_app           String?  // App that created this clipboard item
+  is_sensitive         Boolean  @default(false) // Whether content contains sensitive data
+  sensitive_types      String?  // JSON array of detected sensitive data types
+  sensitive_confidence String?  // Confidence level: 'low', 'medium', 'high'
+  created_at           DateTime @default(now())
+  accessed_at          DateTime @default(now())
+  access_count         Int      @default(1)
+  is_favorite          Boolean  @default(false)
+  is_deleted           Boolean  @default(false)
 
   // Relations
   tags ItemTag[]

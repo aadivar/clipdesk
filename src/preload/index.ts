@@ -114,6 +114,13 @@ interface ClipDeskAPI {
     requestAccessibility: () => Promise<{ success: boolean; message?: string; error?: string }>
   }
 
+  // Sensitive data controls
+  sensitiveData: {
+    getSettings: () => Promise<{ enabled: boolean; level: 'strict' | 'moderate' | 'permissive' }>
+    updateSettings: (enabled: boolean, level: 'strict' | 'moderate' | 'permissive') => Promise<{ success: boolean }>
+    getTypeDescription: (type: string) => Promise<string>
+  }
+
   // App controls
   app: {
     showWindow: () => Promise<{ success: boolean }>
@@ -175,6 +182,13 @@ const api: ClipDeskAPI = {
   permissions: {
     checkAccessibility: () => ipcRenderer.invoke('check-accessibility-permissions'),
     requestAccessibility: () => ipcRenderer.invoke('request-accessibility-permissions'),
+  },
+
+  sensitiveData: {
+    getSettings: () => ipcRenderer.invoke('sensitive-data-settings-get'),
+    updateSettings: (enabled: boolean, level: 'strict' | 'moderate' | 'permissive') =>
+      ipcRenderer.invoke('sensitive-data-settings-update', enabled, level),
+    getTypeDescription: (type: string) => ipcRenderer.invoke('sensitive-data-type-description', type),
   },
 
   app: {

@@ -663,6 +663,35 @@ class ClipDeskApp {
       }
     })
 
+    // Sensitive data controls
+    ipcMain.handle('sensitive-data-settings-get', async () => {
+      try {
+        return await clipboardMonitor.getSensitiveDataSettings()
+      } catch (error) {
+        console.error('Error getting sensitive data settings:', error)
+        throw error
+      }
+    })
+
+    ipcMain.handle('sensitive-data-settings-update', async (event, enabled: boolean, level: 'strict' | 'moderate' | 'permissive') => {
+      try {
+        await clipboardMonitor.updateSensitiveDataSettings(enabled, level)
+        return { success: true }
+      } catch (error) {
+        console.error('Error updating sensitive data settings:', error)
+        throw error
+      }
+    })
+
+    ipcMain.handle('sensitive-data-type-description', async (event, type: string) => {
+      try {
+        return clipboardMonitor.getSensitiveDataTypeDescription(type)
+      } catch (error) {
+        console.error('Error getting sensitive data type description:', error)
+        throw error
+      }
+    })
+
     ipcMain.handle('monitor-status', async () => {
       try {
         return { isRunning: clipboardMonitor.isRunning() }

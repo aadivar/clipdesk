@@ -3,13 +3,39 @@ import { EventEmitter } from 'events';
 import { db } from '../shared/database';
 import path from 'path';
 import { promises as fs } from 'fs';
+import { SensitiveDataDetector } from './sensitiveDataDetector';
 
 export interface ClipboardContent {
   type: 'text' | 'image' | 'file' | 'link' | 'color';
   content: string;
   rawContent?: Buffer;
   metadata?: any;
+  sensitiveData?: SensitiveDataDetection;
 }
+
+export interface SensitiveDataDetection {
+  isSensitive: boolean;
+  detectedTypes: SensitiveDataType[];
+  confidence: 'low' | 'medium' | 'high';
+  redactedContent?: string;
+}
+
+export type SensitiveDataType =
+  | 'api_key'
+  | 'private_key'
+  | 'jwt_token'
+  | 'database_url'
+  | 'credit_card'
+  | 'ssn'
+  | 'password'
+  | 'bearer_token'
+  | 'oauth_token'
+  | 'certificate'
+  | 'ssh_key'
+  | 'aws_key'
+  | 'github_token'
+  | 'stripe_key'
+  | 'google_api_key';
 
 export class ClipboardMonitor extends EventEmitter {
   private isMonitoring = false;
@@ -20,9 +46,11 @@ export class ClipboardMonitor extends EventEmitter {
   private pollInterval = 500; // ms
   private excludedApps: Set<string> = new Set();
   private useTimeoutPolling = false; // Fallback for packaged apps
+  private sensitiveDataDetector: SensitiveDataDetector;
 
   constructor() {
     super();
+    this.sensitiveDataDetector = new SensitiveDataDetector();
     this.loadExcludedApps();
   }
 
@@ -365,10 +393,20 @@ export class ClipboardMonitor extends EventEmitter {
       const contentType = this.detectTextContentType(text);
       console.log('🔍 getTextContent: Detected type:', contentType)
 
+      // Detect sensitive data
+      console.log('🔒 getTextContent: Checking for sensitive data...')
+      const sensitiveData = this.sensitiveDataDetector.detectSensitiveData(text);
+      console.log('🔒 getTextContent: Sensitive data detection result:', {
+        isSensitive: sensitiveData.isSensitive,
+        types: sensitiveData.detectedTypes,
+        confidence: sensitiveData.confidence
+      })
+
       const result = {
         type: contentType,
         content: text,
         metadata: this.generateTextMetadata(text, contentType),
+        sensitiveData
       };
 
       console.log('🔍 getTextContent: Returning content with type:', result.type)
@@ -557,12 +595,14 @@ export class ClipboardMonitor extends EventEmitter {
       // Store in database
       console.log('💾 Calling db.addClipboardItem...')
       console.log('📝 Metadata:', content.metadata)
+      console.log('🔒 Sensitive data:', content.sensitiveData)
       const result = await db.addClipboardItem(
         content.content,
         content.type,
         sourceApp,
         content.rawContent,
-        content.metadata
+        content.metadata,
+        content.sensitiveData
       );
       
       console.log('✅ Database item added successfully:', result);
@@ -680,6 +720,31 @@ export class ClipboardMonitor extends EventEmitter {
   async updateExcludedApps(apps: string[]): Promise<void> {
     this.excludedApps = new Set(apps.map(app => app.toLowerCase()));
     await db.setSetting('excludedApps', JSON.stringify(apps));
+  }
+
+  // Sensitive data management methods
+  async updateSensitiveDataSettings(enabled: boolean, level: 'strict' | 'moderate' | 'permissive'): Promise<void> {
+    this.sensitiveDataDetector.updateSettings(enabled, level);
+    await db.setSetting('sensitiveDataEnabled', enabled.toString());
+    await db.setSetting('sensitiveDataLevel', level);
+  }
+
+  async getSensitiveDataSettings(): Promise<{ enabled: boolean; level: 'strict' | 'moderate' | 'permissive' }> {
+    try {
+      const enabled = await db.getSetting('sensitiveDataEnabled');
+      const level = await db.getSetting('sensitiveDataLevel');
+      return {
+        enabled: enabled === 'true',
+        level: (level as 'strict' | 'moderate' | 'permissive') || 'moderate'
+      };
+    } catch (error) {
+      console.error('Error getting sensitive data settings:', error);
+      return { enabled: true, level: 'moderate' };
+    }
+  }
+
+  getSensitiveDataTypeDescription(type: string): string {
+    return this.sensitiveDataDetector.getTypeDescription(type as any);
   }
 
   async updatePollInterval(interval: number): Promise<void> {

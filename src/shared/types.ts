@@ -10,6 +10,9 @@ export interface ClipboardItem {
   textContent?: string
   metadata?: Record<string, any>
   sourceApp?: string
+  isSensitive?: boolean
+  sensitiveTypes?: string[]
+  sensitiveConfidence?: 'low' | 'medium' | 'high'
   createdAt: Date
   accessedAt: Date
   accessCount: number
