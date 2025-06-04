@@ -208,3 +208,60 @@ ClipDesk follows the principle of progressive disclosure - offering a clean, sim
 ---
 
 *This README serves as our north star for building ClipDesk - a clipboard manager that's both powerful and beautiful, respecting user privacy while delivering an exceptional experience.*
+
+Complete List of Sensitive Data Categories
+🔑 Authentication & API Keys
+Generic API Keys (api_key) - Medium confidence
+Patterns like api_key=, secret_key=, access_token=
+Stripe API Keys (stripe_key) - High confidence
+Secret keys: sk_live_*, sk_test_*
+Publishable keys: pk_live_*, pk_test_*
+Restricted keys: rk_live_*, rk_test_*
+AWS Access Keys (aws_key) - High confidence
+Access Key IDs: AKIA* (20 chars)
+Session Tokens: ASIA* (20 chars)
+Secret Access Keys (40 characters)
+GitHub Tokens (github_token) - High confidence
+Personal Access Tokens: ghp_*
+OAuth Tokens: gho_*
+User Tokens: ghu_*
+Server Tokens: ghs_*
+Refresh Tokens: ghr_*
+Google API Keys (google_api_key) - High confidence
+Pattern: AIza* (39 characters total)
+🎫 Tokens & Authentication
+JWT Tokens (jwt_token) - High confidence
+Base64 encoded tokens starting with eyJ
+Bearer Tokens (bearer_token) - High confidence
+Authorization headers: Bearer <token>
+OAuth Tokens (oauth_token) - Medium confidence
+OAuth tokens, access tokens, refresh tokens
+🔐 Cryptographic Materials
+Private Keys (private_key) - High confidence
+RSA, OpenSSH, EC, DSA private keys
+Encrypted private keys
+SSH Keys (ssh_key) - High confidence
+ssh-rsa, ssh-ed25519, ssh-dss, ecdsa-sha2-nistp*
+Certificates (certificate) - High confidence
+X.509 certificates, public keys
+🗄️ Database & Infrastructure
+Database URLs (database_url) - High confidence
+MongoDB, PostgreSQL, MySQL, Redis, SQLite connection strings
+💳 Financial & Personal Information
+Credit Card Numbers (credit_card) - High confidence
+Validated using Luhn algorithm (13-19 digits)
+Social Security Numbers (ssn) - Medium confidence
+Format: XXX-XX-XXXX or XXXXXXXXX
+🔒 Passwords
+Passwords (password) - Medium confidence
+Context-based detection: password=, pwd=, pass=
+Email:password combinations
+📊 Detection Confidence Levels:
+🔴 High Confidence: Private keys, certificates, JWT tokens, database URLs, credit cards, SSH keys, AWS keys, GitHub tokens, Stripe keys, Google API keys, bearer tokens
+🟡 Medium Confidence: Generic API keys, OAuth tokens, SSN, passwords
+🟢 Low Confidence: No current categories (used for non-matches)
+🛡️ Security Features:
+Content Redaction: Sensitive content is automatically redacted for display
+Configurable Detection: Can be enabled/disabled and set to strict/moderate/permissive levels
+Real-time Detection: All clipboard content is scanned as it's captured
+Multiple Pattern Matching: Uses regex patterns optimized for each data type
