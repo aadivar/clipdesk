@@ -53,12 +53,22 @@ class ClipDeskApp {
         this.setupIPCHandlers()
         log.info('✅ IPC handlers set up successfully')
 
+        // SECOND: Initialize database EARLY - many things depend on it
+        try {
+          log.info('🔧 Initializing database...')
+          await db.initialize()
+          log.info('✅ Database initialized successfully')
+        } catch (error) {
+          log.error('❌ Database initialization failed:', error)
+          // Continue with app startup even if database fails
+        }
+
         // Register the protocol handler AFTER app is ready
         log.info('🔧 Registering protocol...')
         this.registerProtocol()
         log.info('✅ Protocol registered successfully')
 
-        // Create window after tray
+        // Create window after protocol
         log.info('🔧 Creating window...')
         this.createWindow()
         log.info('✅ Window created successfully')
@@ -95,6 +105,9 @@ class ClipDeskApp {
         // Apply initial dock hiding for hybrid mode (unless user wants it always in dock)
         if (process.platform === 'darwin') {
           try {
+            // Wait a bit to ensure database is fully ready
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             const showInDock = await db.getSetting('showInDock');
             const shouldShowInDock = showInDock === 'true';
             
@@ -107,10 +120,19 @@ class ClipDeskApp {
               }, 2000); // Give time for window to appear first
             }
           } catch (error) {
-            log.error('Error checking dock setting:', error);
+            log.warn('Could not check dock setting (database not ready):', error instanceof Error ? error.message : String(error));
             // Default hybrid behavior - hide from dock unless manually launched
             if (wasOpenedAtLogin) {
-              app.dock?.hide();
+              setTimeout(() => {
+                app.dock?.hide();
+                log.info('✅ App hidden from dock (default behavior)');
+              }, 1000);
+            } else {
+              // For manual launch, briefly show then hide
+              setTimeout(() => {
+                app.dock?.hide();
+                log.info('✅ App hidden from dock (fallback behavior)');
+              }, 2000);
             }
           }
         }
@@ -130,16 +152,6 @@ class ClipDeskApp {
             log.error('❌ Accessibility permissions check failed:', error)
             // Continue anyway
           }
-        }
-
-        // Initialize database (non-blocking)
-        try {
-          log.info('🔧 Initializing database...')
-          await db.initialize()
-          log.info('✅ Database initialized successfully')
-        } catch (error) {
-          log.error('❌ Database initialization failed:', error)
-          // Continue with app startup even if database fails
         }
 
         // Start clipboard monitoring (non-blocking)

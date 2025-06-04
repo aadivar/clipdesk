@@ -56,7 +56,6 @@ export class ClipboardMonitor extends EventEmitter {
   constructor() {
     super();
     this.sensitiveDataDetector = new SensitiveDataDetector();
-    this.loadExcludedApps();
   }
 
   async start(): Promise<void> {
@@ -76,6 +75,9 @@ export class ClipboardMonitor extends EventEmitter {
 
     // Initialize database
     await db.initialize();
+
+    // Load excluded apps after database is ready
+    await this.loadExcludedApps();
 
     // Get initial clipboard state
     log.info('📋 Getting initial clipboard state...')
