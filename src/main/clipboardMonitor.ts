@@ -1,9 +1,14 @@
 import { clipboard, nativeImage, NativeImage } from 'electron';
 import { EventEmitter } from 'events';
+import log from 'electron-log';
 import { db } from '../shared/database';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { SensitiveDataDetector } from './sensitiveDataDetector';
+
+// Configure logging levels
+log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'warn';
+log.transports.file.level = 'info';
 
 export interface ClipboardContent {
   type: 'text' | 'image' | 'file' | 'link' | 'color';
@@ -57,49 +62,49 @@ export class ClipboardMonitor extends EventEmitter {
   async start(): Promise<void> {
     if (this.isMonitoring) return;
 
-    console.log('🚀 Starting clipboard monitoring...')
+    log.info('🚀 Starting clipboard monitoring...')
     this.isMonitoring = true;
 
     // Detect if we're in a packaged app
     const { app } = require('electron');
     const isPackaged = app.isPackaged;
-    console.log('📦 App is packaged:', isPackaged);
+    log.info('📦 App is packaged:', isPackaged);
 
     // Use timeout polling for packaged apps as setInterval can be unreliable
     this.useTimeoutPolling = isPackaged;
-    console.log('⏰ Using timeout polling:', this.useTimeoutPolling);
+    log.info('⏰ Using timeout polling:', this.useTimeoutPolling);
 
     // Initialize database
     await db.initialize();
 
     // Get initial clipboard state
-    console.log('📋 Getting initial clipboard state...')
+    log.info('📋 Getting initial clipboard state...')
     try {
       this.lastClipboardContent = clipboard.readText() || '';
-      console.log('📝 Initial clipboard content:', this.lastClipboardContent.substring(0, 100) + '...')
+      log.debug('📝 Initial clipboard content:', this.lastClipboardContent.substring(0, 100) + '...')
       this.lastClipboardContentHash = this.generateHash(this.lastClipboardContent);
-      console.log('🔑 Initial clipboard hash:', this.lastClipboardContentHash)
+      log.debug('🔑 Initial clipboard hash:', this.lastClipboardContentHash)
     } catch (error) {
-      console.error('❌ Error reading initial clipboard:', error)
+      log.error('❌ Error reading initial clipboard:', error)
     }
 
     // Start polling
-    console.log('⏰ Starting clipboard polling every', this.pollInterval, 'ms')
+    log.info('⏰ Starting clipboard polling every', this.pollInterval, 'ms')
 
     if (this.useTimeoutPolling) {
-      console.log('⏰ Using setTimeout-based polling for packaged app...')
+      log.info('⏰ Using setTimeout-based polling for packaged app...')
       this.startTimeoutPolling();
     } else {
-      console.log('⏰ Using setInterval-based polling for development...')
+      log.debug('⏰ Using setInterval-based polling for development...')
       this.startIntervalPolling();
     }
 
     // Force an immediate check
-    console.log('🔍 Forcing immediate clipboard check...')
+    log.debug('🔍 Forcing immediate clipboard check...')
     setTimeout(() => this.checkClipboard(), 100);
 
     this.emit('started');
-    console.log('✅ Clipboard monitoring started successfully');
+    log.info('✅ Clipboard monitoring started successfully');
   }
 
   stop(): void {
@@ -118,48 +123,48 @@ export class ClipboardMonitor extends EventEmitter {
     }
 
     this.emit('stopped');
-    console.log('Clipboard monitoring stopped');
+    log.info('Clipboard monitoring stopped');
   }
 
   private startIntervalPolling(): void {
     this.intervalId = setInterval(() => {
-      console.log('⏰ Interval tick - calling checkClipboard()')
+      log.debug('⏰ Interval tick - calling checkClipboard()')
       this.checkClipboard();
     }, this.pollInterval);
-    console.log('⏰ Interval ID:', this.intervalId)
+    log.debug('⏰ Interval ID:', this.intervalId)
   }
 
   private startTimeoutPolling(): void {
-    console.log('🔧 startTimeoutPolling() called')
+    log.debug('🔧 startTimeoutPolling() called')
 
     const poll = () => {
-      console.log('⏰ Timeout tick - checking if monitoring is active:', this.isMonitoring)
+      log.debug('⏰ Timeout tick - checking if monitoring is active:', this.isMonitoring)
       if (!this.isMonitoring) {
-        console.log('⏰ Monitoring stopped, ending timeout polling')
+        log.debug('⏰ Monitoring stopped, ending timeout polling')
         return;
       }
 
-      console.log('⏰ Timeout tick - calling checkClipboard()')
+      log.debug('⏰ Timeout tick - calling checkClipboard()')
       this.checkClipboard().finally(() => {
-        console.log('⏰ checkClipboard() completed, scheduling next check')
+        log.debug('⏰ checkClipboard() completed, scheduling next check')
         if (this.isMonitoring) {
           this.timeoutId = setTimeout(poll, this.pollInterval);
-          console.log('⏰ Next timeout scheduled with ID:', this.timeoutId)
+          log.debug('⏰ Next timeout scheduled with ID:', this.timeoutId)
         } else {
-          console.log('⏰ Monitoring stopped during check, not scheduling next')
+          log.debug('⏰ Monitoring stopped during check, not scheduling next')
         }
       });
     };
 
     // Start the polling chain
-    console.log('⏰ Starting initial timeout with interval:', this.pollInterval)
+    log.debug('⏰ Starting initial timeout with interval:', this.pollInterval)
     this.timeoutId = setTimeout(poll, this.pollInterval);
-    console.log('⏰ Timeout polling started with ID:', this.timeoutId)
+    log.debug('⏰ Timeout polling started with ID:', this.timeoutId)
   }
 
   private async checkClipboard(): Promise<void> {
     try {
-      console.log('🔍 Checking clipboard...')
+      log.debug('🔍 Checking clipboard...')
 
       // Check if we have accessibility permissions on macOS
       if (process.platform === 'darwin') {
@@ -168,130 +173,130 @@ export class ClipboardMonitor extends EventEmitter {
           if (systemPreferences && systemPreferences.isTrustedAccessibilityClient) {
             const isTrusted = systemPreferences.isTrustedAccessibilityClient(false)
             if (!isTrusted) {
-              console.log('⚠️ Accessibility permissions not granted, clipboard monitoring may be limited')
+              log.warn('⚠️ Accessibility permissions not granted, clipboard monitoring may be limited')
               // Continue anyway - we can still detect some clipboard changes
             }
           }
         } catch (permError) {
-          console.log('⚠️ Could not check accessibility permissions:', permError instanceof Error ? permError.message : String(permError))
+          log.warn('⚠️ Could not check accessibility permissions:', permError instanceof Error ? permError.message : String(permError))
         }
       }
 
       const currentContent = await this.getCurrentClipboardContent();
 
-      console.log('🔍 getCurrentClipboardContent result:', currentContent ? 'Found content' : 'NULL - no content')
+      log.debug('🔍 getCurrentClipboardContent result:', currentContent ? 'Found content' : 'NULL - no content')
 
       if (!currentContent) {
-        console.log('❌ No clipboard content detected')
+        log.debug('❌ No clipboard content detected')
         return
       }
 
-      console.log('📋 Clipboard content detected:', currentContent.type, currentContent.content.substring(0, 50) + '...')
+      log.debug('📋 Clipboard content detected:', currentContent.type, currentContent.content.substring(0, 50) + '...')
 
       const currentHash = this.generateHash(currentContent.content);
 
-      console.log('🔑 Current hash:', currentHash)
-      console.log('🔑 Last hash:', this.lastClipboardContentHash)
-      console.log('🔍 Hashes equal?', currentHash === this.lastClipboardContentHash)
+      log.debug('🔑 Current hash:', currentHash)
+      log.debug('🔑 Last hash:', this.lastClipboardContentHash)
+      log.debug('🔍 Hashes equal?', currentHash === this.lastClipboardContentHash)
 
       // Check if content has changed
       if (currentHash !== this.lastClipboardContentHash) {
-        console.log('🆕 Clipboard content changed!')
+        log.info('🆕 Clipboard content changed!')
         this.lastClipboardContent = currentContent.content;
         this.lastClipboardContentHash = currentHash;
 
         // Skip if from excluded app
-        console.log('🔍 Getting source application...')
+        log.debug('🔍 Getting source application...')
         const sourceApp = await this.getSourceApplication();
-        console.log('📱 Source app:', sourceApp)
+        log.debug('📱 Source app:', sourceApp)
 
-        console.log('🔍 Checking if app is excluded...')
-        console.log('🔍 Excluded apps:', Array.from(this.excludedApps))
+        log.debug('🔍 Checking if app is excluded...')
+        log.debug('🔍 Excluded apps:', Array.from(this.excludedApps))
 
         if (sourceApp && this.excludedApps.has(sourceApp.toLowerCase())) {
-          console.log('🚫 Skipping excluded app:', sourceApp)
+          log.debug('🚫 Skipping excluded app:', sourceApp)
           return;
         } else {
-          console.log('✅ App not excluded, proceeding...')
+          log.debug('✅ App not excluded, proceeding...')
         }
 
         // Process and store the new clipboard content
-        console.log('💾 Processing clipboard content...')
+        log.debug('💾 Processing clipboard content...')
         try {
           await this.processClipboardContent(currentContent, sourceApp || undefined);
-          console.log('✅ Clipboard content processed successfully')
+          log.debug('✅ Clipboard content processed successfully')
         } catch (error) {
-          console.error('❌ Error in processClipboardContent:', error)
+          log.error('❌ Error in processClipboardContent:', error)
         }
 
-        console.log('📤 Emitting clipboard-changed event')
+        log.debug('📤 Emitting clipboard-changed event')
         this.emit('clipboardChanged', currentContent);
       } else {
-        console.log('📝 Clipboard content unchanged')
+        log.debug('📝 Clipboard content unchanged')
       }
     } catch (error) {
-      console.error('❌ Error checking clipboard:', error);
+      log.error('❌ Error checking clipboard:', error);
     }
   }
 
   private async getCurrentClipboardContent(): Promise<ClipboardContent | null> {
     try {
-      console.log('🔍 getCurrentClipboardContent: Starting clipboard content detection...')
+      log.debug('🔍 getCurrentClipboardContent: Starting clipboard content detection...')
 
       // Check for different content types in order of priority
       // IMPORTANT: Order matters! More specific types should be checked first
 
       // Special case: Check if we have both image and file data (common when copying files from Finder)
-      console.log('🔍 Reading text content from clipboard...')
+      log.debug('🔍 Reading text content from clipboard...')
       const textContent = clipboard.readText();
-      console.log('🔍 Text content length:', textContent ? textContent.length : 0)
+      log.debug('🔍 Text content length:', textContent ? textContent.length : 0)
 
-      console.log('🔍 Reading image data from clipboard...')
+      log.debug('🔍 Reading image data from clipboard...')
       const hasImageData = !clipboard.readImage().isEmpty();
-      console.log('🔍 Has image data:', hasImageData)
+      log.debug('🔍 Has image data:', hasImageData)
 
       const hasFileData = textContent && this.isFilePath(textContent);
-      console.log('🔍 Has file data:', hasFileData)
+      log.debug('🔍 Has file data:', hasFileData)
 
       // If we have both image and file data, prefer file detection
       // This handles the case where Finder puts both file path and file icon in clipboard
       if (hasImageData && hasFileData) {
-        console.log('🔍 Both image and file data detected, checking file content...')
+        log.debug('🔍 Both image and file data detected, checking file content...')
         const fileContent = await this.getFileContent();
         if (fileContent) {
-          console.log('🔍 File content detected:', fileContent.type)
+          log.debug('🔍 File content detected:', fileContent.type)
           return fileContent;
         }
       }
 
       // 1. Check for images first (highest priority for visual content)
-      console.log('🔍 Checking for image content...')
+      log.debug('🔍 Checking for image content...')
       const imageContent = await this.getImageContent();
       if (imageContent) {
-        console.log('🔍 Image content found:', imageContent.type)
+        log.debug('🔍 Image content found:', imageContent.type)
         return imageContent;
       }
 
       // 2. Check for files (before text, since file paths might be text)
-      console.log('🔍 Checking for file content...')
+      log.debug('🔍 Checking for file content...')
       const filesContent = await this.getFileContent();
       if (filesContent) {
-        console.log('🔍 File content found:', filesContent.type)
+        log.debug('🔍 File content found:', filesContent.type)
         return filesContent;
       }
 
       // 3. Check for text content last (most general, includes links, colors, etc.)
-      console.log('🔍 Checking for text content...')
+      log.debug('🔍 Checking for text content...')
       const finalTextContent = await this.getTextContent();
       if (finalTextContent) {
-        console.log('🔍 Text content found:', finalTextContent.type)
+        log.debug('🔍 Text content found:', finalTextContent.type)
         return finalTextContent;
       }
 
-      console.log('🔍 No clipboard content detected')
+      log.debug('🔍 No clipboard content detected')
       return null;
     } catch (error) {
-      console.error('❌ Error in getCurrentClipboardContent:', error)
+      log.error('❌ Error in getCurrentClipboardContent:', error)
       return null;
     }
   }
@@ -346,7 +351,7 @@ export class ClipboardMonitor extends EventEmitter {
         }
       }
     } catch (error) {
-      console.error('Error getting file content:', error);
+      log.error('Error getting file content:', error);
     }
     return null;
   }
@@ -372,31 +377,31 @@ export class ClipboardMonitor extends EventEmitter {
         };
       }
     } catch (error) {
-      console.error('Error getting image content:', error);
+      log.error('Error getting image content:', error);
     }
     return null;
   }
 
   private async getTextContent(): Promise<ClipboardContent | null> {
     try {
-      console.log('🔍 getTextContent: Reading text from clipboard...')
+      log.debug('🔍 getTextContent: Reading text from clipboard...')
       const text = clipboard.readText();
-      console.log('🔍 getTextContent: Text length:', text ? text.length : 0)
+      log.debug('🔍 getTextContent: Text length:', text ? text.length : 0)
 
       if (!text || text.trim().length === 0) {
-        console.log('🔍 getTextContent: No text content or empty text')
+        log.debug('🔍 getTextContent: No text content or empty text')
         return null;
       }
 
       // Detect content subtype
-      console.log('🔍 getTextContent: Detecting content type...')
+      log.debug('🔍 getTextContent: Detecting content type...')
       const contentType = this.detectTextContentType(text);
-      console.log('🔍 getTextContent: Detected type:', contentType)
+      log.debug('🔍 getTextContent: Detected type:', contentType)
 
       // Detect sensitive data
-      console.log('🔒 getTextContent: Checking for sensitive data...')
+      log.debug('🔒 getTextContent: Checking for sensitive data...')
       const sensitiveData = this.sensitiveDataDetector.detectSensitiveData(text);
-      console.log('🔒 getTextContent: Sensitive data detection result:', {
+      log.debug('🔒 getTextContent: Sensitive data detection result:', {
         isSensitive: sensitiveData.isSensitive,
         types: sensitiveData.detectedTypes,
         confidence: sensitiveData.confidence
@@ -409,10 +414,10 @@ export class ClipboardMonitor extends EventEmitter {
         sensitiveData
       };
 
-      console.log('🔍 getTextContent: Returning content with type:', result.type)
+      log.debug('🔍 getTextContent: Returning content with type:', result.type)
       return result;
     } catch (error) {
-      console.error('❌ Error getting text content:', error);
+      log.error('❌ Error getting text content:', error);
     }
     return null;
   }
@@ -586,16 +591,16 @@ export class ClipboardMonitor extends EventEmitter {
     sourceApp?: string
   ): Promise<void> {
     try {
-      console.log('💾 Starting to process clipboard content...')
-      console.log('📝 Content type:', content.type)
-      console.log('📝 Content length:', content.content.length)
-      console.log('📝 Source app:', sourceApp)
-      console.log('📝 Content preview:', content.content.substring(0, 100) + '...')
+      log.debug('💾 Starting to process clipboard content...')
+      log.debug('📝 Content type:', content.type)
+      log.debug('📝 Content length:', content.content.length)
+      log.debug('📝 Source app:', sourceApp)
+      log.debug('📝 Content preview:', content.content.substring(0, 100) + '...')
       
       // Store in database
-      console.log('💾 Calling db.addClipboardItem...')
-      console.log('📝 Metadata:', content.metadata)
-      console.log('🔒 Sensitive data:', content.sensitiveData)
+      log.debug('💾 Calling db.addClipboardItem...')
+      log.debug('📝 Metadata:', content.metadata)
+      log.debug('🔒 Sensitive data:', content.sensitiveData)
       const result = await db.addClipboardItem(
         content.content,
         content.type,
@@ -605,11 +610,11 @@ export class ClipboardMonitor extends EventEmitter {
         content.sensitiveData
       );
       
-      console.log('✅ Database item added successfully:', result);
-      console.log(`✅ Stored clipboard item: ${content.type} from ${sourceApp || 'unknown'}`);
+      log.debug('✅ Database item added successfully:', result);
+      log.debug(`✅ Stored clipboard item: ${content.type} from ${sourceApp || 'unknown'}`);
     } catch (error) {
-      console.error('❌ Error processing clipboard content:', error);
-      console.error('❌ Failed content:', {
+      log.error('❌ Error processing clipboard content:', error);
+      log.error('❌ Failed content:', {
         type: content.type,
         contentLength: content.content.length,
         sourceApp
@@ -682,7 +687,7 @@ export class ClipboardMonitor extends EventEmitter {
           return this.cleanAppName(appName);
 
         } catch (e) {
-          console.error('AppleScript failed:', e);
+          log.error('AppleScript failed:', e);
           // Fall back to basic detection
         }
       }
@@ -698,7 +703,7 @@ export class ClipboardMonitor extends EventEmitter {
 
       return 'Unknown';
     } catch (error) {
-      console.error('Error detecting source app:', error);
+      log.error('Error detecting source app:', error);
       return 'Unknown';
     }
   }
@@ -750,11 +755,11 @@ export class ClipboardMonitor extends EventEmitter {
             const excludedApps = JSON.parse(excludedAppsJson);
             this.excludedApps = new Set(excludedApps.map((app: string) => app.toLowerCase()));
           }
-          console.log('✅ Excluded apps loaded successfully')
+          log.info('✅ Excluded apps loaded successfully')
           return
         } catch (error) {
           if (retries < maxRetries - 1) {
-            console.log(`⏳ Database not ready, retrying... (${retries + 1}/${maxRetries})`)
+            log.info(`⏳ Database not ready, retrying... (${retries + 1}/${maxRetries})`)
             retries++
             await new Promise(resolve => setTimeout(resolve, 500))
           } else {
@@ -763,8 +768,8 @@ export class ClipboardMonitor extends EventEmitter {
         }
       }
     } catch (error) {
-      console.error('Error loading excluded apps:', error);
-      console.log('🔧 Using default empty excluded apps list')
+      log.error('Error loading excluded apps:', error);
+      log.info('🔧 Using default empty excluded apps list')
       this.excludedApps = new Set()
     }
   }
@@ -802,7 +807,7 @@ export class ClipboardMonitor extends EventEmitter {
         level: (level as 'strict' | 'moderate' | 'permissive') || 'moderate'
       };
     } catch (error) {
-      console.error('Error getting sensitive data settings:', error);
+      log.error('Error getting sensitive data settings:', error);
       return { enabled: true, level: 'moderate' };
     }
   }
@@ -828,16 +833,16 @@ export class ClipboardMonitor extends EventEmitter {
   // Test clipboard access
   async testClipboardAccess(): Promise<{ success: boolean; error?: string; details?: any }> {
     try {
-      console.log('🧪 Testing clipboard access...')
+      log.info('🧪 Testing clipboard access...')
 
       // Test reading text
       const text = clipboard.readText();
-      console.log('🧪 Text read test - length:', text ? text.length : 0)
+      log.info('🧪 Text read test - length:', text ? text.length : 0)
 
       // Test reading image
       const image = clipboard.readImage();
       const hasImage = !image.isEmpty();
-      console.log('🧪 Image read test - has image:', hasImage)
+      log.info('🧪 Image read test - has image:', hasImage)
 
       // Test writing (temporarily)
       const originalText = text;
@@ -847,7 +852,7 @@ export class ClipboardMonitor extends EventEmitter {
       // Verify write worked
       const readBack = clipboard.readText();
       const writeWorked = readBack === testText;
-      console.log('🧪 Write test - success:', writeWorked)
+      log.info('🧪 Write test - success:', writeWorked)
 
       // Restore original content
       if (originalText) {
@@ -866,7 +871,7 @@ export class ClipboardMonitor extends EventEmitter {
         }
       };
     } catch (error) {
-      console.error('🧪 Clipboard access test failed:', error)
+      log.error('🧪 Clipboard access test failed:', error)
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error)
