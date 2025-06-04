@@ -77,9 +77,19 @@ class ClipDeskApp {
             app.dock?.hide();
           }
         } else {
-          // Show window on manual launch
-          log.info('🔧 Manual launch detected, showing window...')
-          this.showWindow();
+          // For manual launch, also start hidden (true background app)
+          log.info('🔧 Manual launch detected, starting in background...')
+          
+          // Create window but keep it hidden initially
+          // User can summon it with Shift+Command+V
+          
+          // Hide from dock for clean background operation
+          if (process.platform === 'darwin') {
+            setTimeout(() => {
+              app.dock?.hide();
+              log.info('✅ App starting in background mode - use Shift+Command+V to access');
+            }, 1000); // Brief delay to ensure window is created first
+          }
         }
 
         // Apply initial dock hiding for hybrid mode (unless user wants it always in dock)
@@ -291,8 +301,8 @@ class ClipDeskApp {
       title: 'ClipDesk',
       vibrancy: 'sidebar', // Add subtle transparency effect on macOS
       visualEffectState: 'active',
-      show: false, // Don't show immediately - let showWindow() handle it
-      skipTaskbar: false, // Allow in dock initially
+      show: false, // Always start hidden - let global shortcut show it
+      skipTaskbar: true, // Don't show in taskbar initially
       icon: isDev
         ? path.join(__dirname, '../../assets/icon.png')
         : path.join(app.getAppPath(), 'assets/icon.png'),
@@ -337,37 +347,35 @@ class ClipDeskApp {
       }
     })
 
-    // Handle window close behavior - without tray, minimize to dock instead
+    // Handle window close behavior - hide from dock for true background operation
     this.mainWindow.on('close', async (event) => {
       try {
-        // Check if "run in menubar" setting is enabled
-        const runInMenubar = await db.getSetting('runInMenubar');
-        const shouldRunInMenubar = runInMenubar === 'true';
+        // Always prevent actual quit and hide instead (true background mode)
+        event.preventDefault();
         
-        if (shouldRunInMenubar) {
-          // If user wants menubar mode but we removed tray, just minimize to dock
-          event.preventDefault();
-          log.info('🔧 Window close event - minimizing to dock (menubar mode without tray)');
-          this.mainWindow?.minimize();
-          
-          // Hide from dock if on macOS
-          if (process.platform === 'darwin') {
-            setTimeout(() => {
-              app.dock?.hide();
-              log.info('✅ App hidden from dock');
-            }, 100);
-          }
-        } else {
-          // Normal close behavior - just minimize the window
-          event.preventDefault();
-          log.info('🔧 Window close event - minimizing to dock');
-          this.mainWindow?.minimize();
+        log.info('🔧 Window close event - hiding app from dock (background mode)');
+        
+        // Hide the window first
+        this.mainWindow?.hide();
+
+        // Hide from dock completely (works in background)
+        if (process.platform === 'darwin') {
+          setTimeout(() => {
+            app.dock?.hide();
+            log.info('✅ App hidden from dock - running in background');
+          }, 100);
         }
       } catch (error) {
         log.error('Error in window close handler:', error);
-        // Fallback: just minimize
+        // Fallback: still hide to maintain background operation
         event.preventDefault();
-        this.mainWindow?.minimize();
+        this.mainWindow?.hide();
+        if (process.platform === 'darwin') {
+          setTimeout(() => {
+            app.dock?.hide();
+            log.info('✅ App hidden from dock (error fallback)');
+          }, 100);
+        }
       }
     })
 
@@ -942,32 +950,47 @@ class ClipDeskApp {
 
   private async showWindow(): Promise<void> {
     try {
-      // Always show in dock when window is shown (temporarily for hybrid mode)
+      // Always show in dock when summoned (temporary visibility for interaction)
       if (process.platform === 'darwin') {
         app.dock?.show();
-        log.info('🔧 Showing app in dock for window display');
+        log.info('🔧 Showing app in dock for user interaction');
       }
 
       if (this.mainWindow) {
         if (this.mainWindow.isMinimized()) {
           this.mainWindow.restore()
         }
+        
+        // Show and focus the window
         this.mainWindow.show()
         this.mainWindow.focus()
+        
+        // Bring to front if on macOS
+        if (process.platform === 'darwin') {
+          app.focus({ steal: true });
+        }
+        
         log.info('✅ Window shown and focused');
       } else {
         log.info('🔧 Creating new window...');
         this.createWindow()
+        
         // Show the window after creation
         const window = this.mainWindow as BrowserWindow | null;
         if (window && !window.isDestroyed()) {
           window.show()
           window.focus()
+          
+          if (process.platform === 'darwin') {
+            app.focus({ steal: true });
+          }
+          
           log.info('✅ New window created, shown and focused');
         }
       }
     } catch (error) {
       log.error('Error in showWindow:', error);
+      
       // Fallback behavior
       if (process.platform === 'darwin') {
         app.dock?.show();
