@@ -1634,32 +1634,34 @@ const App: React.FC = () => {
           </Sidebar>
 
           <MainContent>
-            <SearchBar>
-              <SearchInputContainer>
-                <SearchInput
-                  type="text"
-                  placeholder="Search clipboard history..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </SearchInputContainer>
+            {activeView !== 'settings' && (
+              <SearchBar>
+                <SearchInputContainer>
+                  <SearchInput
+                    type="text"
+                    placeholder="Search clipboard history..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </SearchInputContainer>
 
-              {availableSourceApps.length > 0 && (
-                <FilterContainer>
-                  <FilterLabel htmlFor="source-app-filter">Filter by app:</FilterLabel>
-                  <FilterSelect
-                    id="source-app-filter"
-                    value={selectedSourceApp}
-                    onChange={(e) => setSelectedSourceApp(e.target.value)}
-                  >
-                    <option value="all">All Apps</option>
-                    {availableSourceApps.map(app => (
-                      <option key={app} value={app}>{app}</option>
-                    ))}
-                  </FilterSelect>
-                </FilterContainer>
-              )}
-            </SearchBar>
+                {availableSourceApps.length > 0 && (
+                  <FilterContainer>
+                    <FilterLabel htmlFor="source-app-filter">Filter by app:</FilterLabel>
+                    <FilterSelect
+                      id="source-app-filter"
+                      value={selectedSourceApp}
+                      onChange={(e) => setSelectedSourceApp(e.target.value)}
+                    >
+                      <option value="all">All Apps</option>
+                      {availableSourceApps.map(app => (
+                        <option key={app} value={app}>{app}</option>
+                      ))}
+                    </FilterSelect>
+                  </FilterContainer>
+                )}
+              </SearchBar>
+            )}
 
             <ContentArea>
               {isLoading ? (
