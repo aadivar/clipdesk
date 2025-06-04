@@ -126,6 +126,14 @@ interface ClipDeskAPI {
     showWindow: () => Promise<{ success: boolean }>
     hideWindow: () => Promise<{ success: boolean }>
     quit: () => Promise<{ success: boolean }>
+    getVersion: () => Promise<{ success: boolean; version: string }>
+  }
+
+  updater: {
+    checkForUpdates: () => Promise<{ success: boolean; error?: string }>
+    downloadUpdate: () => Promise<{ success: boolean; error?: string }>
+    quitAndInstall: () => Promise<{ success: boolean; error?: string }>
+    getStatus: () => Promise<{ success: boolean; data?: { available: boolean; downloaded: boolean }; error?: string }>
   }
 
   // Event listeners
@@ -195,6 +203,14 @@ const api: ClipDeskAPI = {
     showWindow: () => ipcRenderer.invoke('app-show-window'),
     hideWindow: () => ipcRenderer.invoke('app-hide-window'),
     quit: () => ipcRenderer.invoke('app-quit'),
+    getVersion: () => ipcRenderer.invoke('app-get-version'),
+  },
+
+  updater: {
+    checkForUpdates: () => ipcRenderer.invoke('updater-check-for-updates'),
+    downloadUpdate: () => ipcRenderer.invoke('updater-download-update'),
+    quitAndInstall: () => ipcRenderer.invoke('updater-quit-and-install'),
+    getStatus: () => ipcRenderer.invoke('updater-get-status'),
   },
 
   on: (channel: string, listener: (...args: any[]) => void) => {
@@ -204,7 +220,8 @@ const api: ClipDeskAPI = {
       'debug-log',
       'show-preferences',
       'focus-search',
-      'settings-changed'
+      'settings-changed',
+      'update-status'
     ]
     
     console.log('🔗 Setting up IPC listener for channel:', channel)

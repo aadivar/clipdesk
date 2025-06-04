@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { clipboardMonitor } from './clipboardMonitor'
 import { db } from '../shared/database'
+import { autoUpdaterManager } from './autoUpdater'
 
 const isDev = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV
 const SCHEME = 'clipdesk'
@@ -58,6 +59,11 @@ class ClipDeskApp {
         console.log('🔧 Creating window...')
         this.createWindow()
         console.log('✅ Window created successfully')
+
+        // Set main window for auto-updater
+        if (this.mainWindow) {
+          autoUpdaterManager.setMainWindow(this.mainWindow)
+        }
 
         // Create tray
         console.log('🔧 Creating tray...')
@@ -465,6 +471,13 @@ class ClipDeskApp {
         id: 'pause-monitoring',
         click: () => {
           this.toggleClipboardMonitoring()
+        }
+      },
+      { type: 'separator' },
+      {
+        label: 'Check for Updates',
+        click: async () => {
+          await autoUpdaterManager.checkForUpdates()
         }
       },
       { type: 'separator' },
@@ -973,6 +986,50 @@ class ClipDeskApp {
       await this.cleanup()
       app.quit()
       return { success: true }
+    })
+
+    // Auto-updater controls
+    ipcMain.handle('updater-check-for-updates', async () => {
+      try {
+        await autoUpdaterManager.checkForUpdates()
+        return { success: true }
+      } catch (error) {
+        console.error('Error checking for updates:', error)
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
+      }
+    })
+
+    ipcMain.handle('updater-download-update', async () => {
+      try {
+        await autoUpdaterManager.downloadUpdate()
+        return { success: true }
+      } catch (error) {
+        console.error('Error downloading update:', error)
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
+      }
+    })
+
+    ipcMain.handle('updater-quit-and-install', async () => {
+      try {
+        autoUpdaterManager.quitAndInstall()
+        return { success: true }
+      } catch (error) {
+        console.error('Error installing update:', error)
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
+      }
+    })
+
+    ipcMain.handle('updater-get-status', async () => {
+      try {
+        return { success: true, data: autoUpdaterManager.getUpdateStatus() }
+      } catch (error) {
+        console.error('Error getting update status:', error)
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
+      }
+    })
+
+    ipcMain.handle('app-get-version', async () => {
+      return { success: true, version: app.getVersion() }
     })
   }
 

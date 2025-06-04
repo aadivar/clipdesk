@@ -9,6 +9,13 @@
     "build:debug": "npm run prisma:generate && npm run build:renderer && npm run build:main",
     "build:renderer": "vite build",
     "build:main": "tsc -p tsconfig.main.json",
+    "build:mac": "npm run build:debug && electron-builder --mac",
+    "build:win": "npm run build:debug && electron-builder --win",
+    "build:linux": "npm run build:debug && electron-builder --linux",
+    "publish:mac": "npm run build:debug && electron-builder --mac --publish=always",
+    "publish:win": "npm run build:debug && electron-builder --win --publish=always",
+    "publish:all": "npm run build:debug && electron-builder --mac --win --linux --publish=always",
+    "release": "npm run build:debug && electron-builder --publish=always",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "electron": "electron .",
@@ -48,25 +55,81 @@
     "asarUnpack": [
       "generated/**/*"
     ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "clipdesk",
+        "repo": "clipdesk"
+      }
+    ],
     "mac": {
       "category": "public.app-category.productivity",
-      "target": "dmg",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
       "icon": "assets/icon.icns",
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.inherit.plist",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
       "extendInfo": {
         "NSAppleEventsUsageDescription": "ClipDesk needs access to monitor clipboard changes across all applications to provide clipboard history functionality.",
         "NSSystemAdministrationUsageDescription": "ClipDesk needs system access to monitor clipboard changes and provide automation features."
       }
     },
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ],
       "icon": "assets/icon.ico"
     },
     "linux": {
-      "target": "AppImage",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "assets/icon.png",
       "category": "Utility"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   },
   "devDependencies": {
@@ -87,6 +150,8 @@
   "dependencies": {
     "@prisma/client": "^6.8.2",
     "better-sqlite3": "^11.10.0",
+    "electron-log": "^5.4.0",
+    "electron-updater": "^6.6.2",
     "prisma": "^6.8.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, createContext, useContext } from 'react'
 import styled, { ThemeProvider, createGlobalStyle } from 'styled-components'
 import { SensitiveDataIndicator, SensitiveDataSettings } from './components/SensitiveDataIndicator'
+import UpdateNotification from './components/UpdateNotification'
 
 // Things-inspired theme definitions
 const lightTheme = {
@@ -1764,6 +1765,9 @@ const App: React.FC = () => {
         {showSensitiveDataSettings && (
           <SensitiveDataSettings onClose={() => setShowSensitiveDataSettings(false)} />
         )}
+
+        {/* Update Notification */}
+        <UpdateNotification />
       </ThemeContext.Provider>
     </ThemeProvider>
   )
