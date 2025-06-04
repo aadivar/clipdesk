@@ -78,6 +78,29 @@ class ClipDeskApp {
           this.showWindow();
         }
 
+        // Apply initial dock hiding for hybrid mode (unless user wants it always in dock)
+        if (process.platform === 'darwin') {
+          try {
+            const showInDock = await db.getSetting('showInDock');
+            const shouldShowInDock = showInDock === 'true';
+            
+            if (!shouldShowInDock && !wasOpenedAtLogin) {
+              // For manual launch, briefly show in dock then hide after window setup
+              console.log('🔧 Hybrid mode detected, will hide from dock after window setup...')
+              setTimeout(() => {
+                app.dock?.hide();
+                console.log('✅ App hidden from dock (hybrid mode)');
+              }, 2000); // Give time for window to appear first
+            }
+          } catch (error) {
+            console.error('Error checking dock setting:', error);
+            // Default hybrid behavior - hide from dock unless manually launched
+            if (wasOpenedAtLogin) {
+              app.dock?.hide();
+            }
+          }
+        }
+
         // Register shortcuts
         console.log('🔧 Registering shortcuts...')
         this.registerGlobalShortcuts()
@@ -313,39 +336,49 @@ class ClipDeskApp {
     // Handle window close behavior - implement hybrid mode
     this.mainWindow.on('close', async (event) => {
       try {
-        // Get settings with proper defaults for hybrid mode
-        const runInMenubar = await db.getSetting('runInMenubar');
-        const shouldRunInMenubar = runInMenubar !== 'false'; // Default to true for hybrid mode
-        const showInDock = await db.getSetting('showInDock');
-        const shouldShowInDock = showInDock === 'true'; // Default to false for hybrid mode
+        // Always prevent close and hide instead (true hybrid mode for clipboard managers)
+        event.preventDefault();
+        
+        console.log('🔧 Window close event - hiding window and app from dock');
+        
+        // Hide the window first
+        this.mainWindow?.hide();
 
-        console.log('🔧 Window close event - runInMenubar:', shouldRunInMenubar, 'showInDock:', shouldShowInDock);
-
-        // Hybrid mode: Always prevent close and hide instead (recommended for clipboard managers)
-        if (shouldRunInMenubar || process.platform === 'darwin') {
-          event.preventDefault();
-          this.mainWindow?.hide();
-
-          // Hide from dock when window is hidden (unless user explicitly wants it in dock)
-          if (!shouldShowInDock && process.platform === 'darwin') {
-            console.log('🔧 Hiding app from dock...');
-            // Use setTimeout to ensure the hide happens after the window is hidden
+        // Always hide from dock when window is closed (unless user explicitly wants it in dock)
+        if (process.platform === 'darwin') {
+          try {
+            const showInDock = await db.getSetting('showInDock');
+            const shouldShowInDock = showInDock === 'true'; // Default to false for hybrid mode
+            
+            if (!shouldShowInDock) {
+              console.log('🔧 Hiding app from dock...');
+              // Use setTimeout to ensure the hide happens after the window is hidden
+              setTimeout(() => {
+                app.dock?.hide();
+                console.log('✅ App hidden from dock');
+              }, 100);
+            } else {
+              console.log('🔧 Keeping app in dock (user preference)');
+            }
+          } catch (error) {
+            console.error('Error checking showInDock setting:', error);
+            // Default behavior: hide from dock (true hybrid mode)
+            console.log('🔧 Hiding app from dock (fallback)');
             setTimeout(() => {
               app.dock?.hide();
-              console.log('✅ App hidden from dock');
+              console.log('✅ App hidden from dock (fallback)');
             }, 100);
           }
         }
-        // If runInMenubar is false and not on macOS, allow normal close behavior
       } catch (error) {
-        console.error('Error checking runInMenubar setting:', error);
-        // Fallback: always hide on macOS (recommended behavior)
+        console.error('Error in window close handler:', error);
+        // Fallback: always hide on macOS (recommended behavior for clipboard managers)
+        event.preventDefault();
+        this.mainWindow?.hide();
         if (process.platform === 'darwin') {
-          event.preventDefault();
-          this.mainWindow?.hide();
           setTimeout(() => {
             app.dock?.hide();
-            console.log('✅ App hidden from dock (fallback)');
+            console.log('✅ App hidden from dock (error fallback)');
           }, 100);
         }
       }
@@ -362,14 +395,52 @@ class ClipDeskApp {
     // Use a proper path for the tray icon, with fallback
     let trayIcon: Electron.NativeImage
     try {
-      const trayIconPath = isDev 
-        ? path.join(__dirname, '../../assets/tray-icon.png')
-        : path.join(app.getAppPath(), 'assets/tray-icon.png')
+      let trayIconPath = isDev 
+        ? path.join(__dirname, '../../assets/tray-icon-16.png')
+        : path.join(app.getAppPath(), 'assets/tray-icon-16.png')
+      
+      // Fallback to original tray icon if 16px version doesn't exist
+      if (!fs.existsSync(trayIconPath)) {
+        console.log('🔧 16px tray icon not found, using original...')
+        trayIconPath = isDev 
+          ? path.join(__dirname, '../../assets/tray-icon.png')
+          : path.join(app.getAppPath(), 'assets/tray-icon.png')
+      }
+      
+      console.log('🔧 Loading tray icon from:', trayIconPath)
       trayIcon = nativeImage.createFromPath(trayIconPath)
+      
+      // Ensure icon is not empty
+      if (trayIcon.isEmpty()) {
+        throw new Error('Loaded tray icon is empty')
+      }
+      
+      // Resize icon for macOS menubar (16x16 is optimal for menubar)
+      if (process.platform === 'darwin') {
+        trayIcon = trayIcon.resize({ width: 16, height: 16 })
+      }
+      
+      // Set template image for dark/light mode support on macOS
+      if (process.platform === 'darwin') {
+        trayIcon.setTemplateImage(true)
+      }
+      
+      console.log('✅ Tray icon loaded successfully')
     } catch (error) {
-      console.warn('Failed to load tray icon, using default:', error)
-      // Create a simple tray without custom icon
-      trayIcon = nativeImage.createEmpty()
+      console.warn('Failed to load tray icon, creating simple fallback:', error)
+      // Create a simple black square as fallback
+      trayIcon = nativeImage.createFromBuffer(Buffer.from([
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 16, 0, 0, 0, 16, 
+        8, 2, 0, 0, 0, 144, 145, 104, 54, 0, 0, 0, 25, 116, 69, 88, 116, 83, 111, 102, 116, 119, 
+        97, 114, 101, 0, 65, 100, 111, 98, 101, 32, 73, 109, 97, 103, 101, 82, 101, 97, 100, 121, 
+        113, 201, 101, 60, 0, 0, 0, 46, 73, 68, 65, 84, 120, 218, 98, 96, 96, 96, 248, 15, 4, 12, 
+        12, 140, 140, 140, 140, 204, 44, 0, 34, 5, 5, 69, 81, 81, 17, 139, 197, 98, 177, 88, 44, 
+        22, 139, 197, 98, 177, 88, 44, 22, 139, 197, 98, 1, 0, 153, 96, 30, 184, 136, 132, 17, 0, 
+        0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130
+      ]))
+      if (process.platform === 'darwin') {
+        trayIcon.setTemplateImage(true)
+      }
     }
     
     this.tray = new Tray(trayIcon)
@@ -423,20 +494,16 @@ class ClipDeskApp {
     this.tray.on('click', () => {
       this.showWindow()
     })
+    
+    console.log('✅ Tray created and configured')
   }
 
   private async showWindow(): Promise<void> {
     try {
-      // Check dock visibility setting with proper defaults for hybrid mode
-      const showInDock = await db.getSetting('showInDock');
-      const shouldShowInDock = showInDock === 'true'; // Default to false for hybrid mode
-
-      // Show in dock when window is shown (if user explicitly wants it)
-      if (shouldShowInDock && process.platform === 'darwin') {
+      // Always show in dock when window is shown (temporarily for hybrid mode)
+      if (process.platform === 'darwin') {
         app.dock?.show();
-      } else if (process.platform === 'darwin') {
-        // For hybrid mode, temporarily show in dock when window is active
-        app.dock?.show();
+        console.log('🔧 Showing app in dock for window display');
       }
 
       if (this.mainWindow) {
@@ -445,18 +512,25 @@ class ClipDeskApp {
         }
         this.mainWindow.show()
         this.mainWindow.focus()
+        console.log('✅ Window shown and focused');
       } else {
+        console.log('🔧 Creating new window...');
         this.createWindow()
         // Show the window after creation
         const window = this.mainWindow as BrowserWindow | null;
         if (window && !window.isDestroyed()) {
           window.show()
           window.focus()
+          console.log('✅ New window created, shown and focused');
         }
       }
     } catch (error) {
       console.error('Error in showWindow:', error);
       // Fallback behavior
+      if (process.platform === 'darwin') {
+        app.dock?.show();
+      }
+      
       const window = this.mainWindow as BrowserWindow | null;
       if (window && !window.isDestroyed()) {
         window.show()
