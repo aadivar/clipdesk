@@ -64,6 +64,20 @@ class ClipDeskApp {
         this.createTray()
         console.log('✅ Tray created successfully')
 
+        // Check if app was launched at login and should start hidden
+        const wasOpenedAtLogin = app.getLoginItemSettings().wasOpenedAtLogin;
+        if (wasOpenedAtLogin) {
+          console.log('🔧 App was launched at login, starting hidden...')
+          // Hide from dock immediately for login launch
+          if (process.platform === 'darwin') {
+            app.dock?.hide();
+          }
+        } else {
+          // Show window on manual launch
+          console.log('🔧 Manual launch detected, showing window...')
+          this.showWindow();
+        }
+
         // Register shortcuts
         console.log('🔧 Registering shortcuts...')
         this.registerGlobalShortcuts()
@@ -101,6 +115,15 @@ class ClipDeskApp {
           // Continue with app startup even if clipboard monitoring fails
         }
 
+        // Initialize launch at login setting
+        try {
+          console.log('🔧 Initializing launch at login setting...')
+          await this.initializeLaunchAtLogin()
+          console.log('✅ Launch at login setting initialized')
+        } catch (error) {
+          console.error('❌ Failed to initialize launch at login setting:', error)
+        }
+
         console.log('✅ ClipDesk startup completed successfully')
       } catch (error) {
         console.error('❌ Critical error during app startup:', error)
@@ -114,10 +137,27 @@ class ClipDeskApp {
     })
 
     app.on('window-all-closed', async () => {
-      // On macOS, keep app running even when all windows are closed
-      if (process.platform !== 'darwin') {
+      try {
+        // Check if "run in menubar" setting is enabled
+        const runInMenubar = await db.getSetting('runInMenubar');
+        const shouldRunInMenubar = runInMenubar === 'true';
+
+        // Keep app running if on macOS or if menubar mode is enabled
+        if (process.platform === 'darwin' || shouldRunInMenubar) {
+          // Keep app running in background
+          return;
+        }
+
+        // Otherwise, quit the app
         await this.cleanup()
         app.quit()
+      } catch (error) {
+        console.error('Error checking runInMenubar setting in window-all-closed:', error);
+        // Fallback behavior: quit on non-macOS, keep running on macOS
+        if (process.platform !== 'darwin') {
+          await this.cleanup()
+          app.quit()
+        }
       }
     })
 
@@ -224,6 +264,8 @@ class ClipDeskApp {
       title: 'ClipDesk',
       vibrancy: 'sidebar', // Add subtle transparency effect on macOS
       visualEffectState: 'active',
+      show: false, // Don't show immediately - let showWindow() handle it
+      skipTaskbar: false, // Allow in dock initially
       icon: isDev
         ? path.join(__dirname, '../../assets/icon.png')
         : path.join(app.getAppPath(), 'assets/icon.png'),
@@ -234,8 +276,7 @@ class ClipDeskApp {
         preload: isDev
           ? path.resolve(__dirname, '../preload/index.js')
           : path.join(app.getAppPath(), 'dist/main/src/preload/index.js'),
-      },
-      show: false, // Don't show until ready
+      }
     })
 
     // Load the app using the proven custom protocol solution
@@ -269,11 +310,44 @@ class ClipDeskApp {
       }
     })
 
-    // Hide instead of close on macOS
-    this.mainWindow.on('close', (event) => {
-      if (process.platform === 'darwin') {
-        event.preventDefault();
-        this.mainWindow?.hide();
+    // Handle window close behavior - implement hybrid mode
+    this.mainWindow.on('close', async (event) => {
+      try {
+        // Get settings with proper defaults for hybrid mode
+        const runInMenubar = await db.getSetting('runInMenubar');
+        const shouldRunInMenubar = runInMenubar !== 'false'; // Default to true for hybrid mode
+        const showInDock = await db.getSetting('showInDock');
+        const shouldShowInDock = showInDock === 'true'; // Default to false for hybrid mode
+
+        console.log('🔧 Window close event - runInMenubar:', shouldRunInMenubar, 'showInDock:', shouldShowInDock);
+
+        // Hybrid mode: Always prevent close and hide instead (recommended for clipboard managers)
+        if (shouldRunInMenubar || process.platform === 'darwin') {
+          event.preventDefault();
+          this.mainWindow?.hide();
+
+          // Hide from dock when window is hidden (unless user explicitly wants it in dock)
+          if (!shouldShowInDock && process.platform === 'darwin') {
+            console.log('🔧 Hiding app from dock...');
+            // Use setTimeout to ensure the hide happens after the window is hidden
+            setTimeout(() => {
+              app.dock?.hide();
+              console.log('✅ App hidden from dock');
+            }, 100);
+          }
+        }
+        // If runInMenubar is false and not on macOS, allow normal close behavior
+      } catch (error) {
+        console.error('Error checking runInMenubar setting:', error);
+        // Fallback: always hide on macOS (recommended behavior)
+        if (process.platform === 'darwin') {
+          event.preventDefault();
+          this.mainWindow?.hide();
+          setTimeout(() => {
+            app.dock?.hide();
+            console.log('✅ App hidden from dock (fallback)');
+          }, 100);
+        }
       }
     })
 
@@ -351,15 +425,50 @@ class ClipDeskApp {
     })
   }
 
-  private showWindow(): void {
-    if (this.mainWindow) {
-      if (this.mainWindow.isMinimized()) {
-        this.mainWindow.restore()
+  private async showWindow(): Promise<void> {
+    try {
+      // Check dock visibility setting with proper defaults for hybrid mode
+      const showInDock = await db.getSetting('showInDock');
+      const shouldShowInDock = showInDock === 'true'; // Default to false for hybrid mode
+
+      // Show in dock when window is shown (if user explicitly wants it)
+      if (shouldShowInDock && process.platform === 'darwin') {
+        app.dock?.show();
+      } else if (process.platform === 'darwin') {
+        // For hybrid mode, temporarily show in dock when window is active
+        app.dock?.show();
       }
-      this.mainWindow.show()
-      this.mainWindow.focus()
-    } else {
-      this.createWindow()
+
+      if (this.mainWindow) {
+        if (this.mainWindow.isMinimized()) {
+          this.mainWindow.restore()
+        }
+        this.mainWindow.show()
+        this.mainWindow.focus()
+      } else {
+        this.createWindow()
+        // Show the window after creation
+        const window = this.mainWindow as BrowserWindow | null;
+        if (window && !window.isDestroyed()) {
+          window.show()
+          window.focus()
+        }
+      }
+    } catch (error) {
+      console.error('Error in showWindow:', error);
+      // Fallback behavior
+      const window = this.mainWindow as BrowserWindow | null;
+      if (window && !window.isDestroyed()) {
+        window.show()
+        window.focus()
+      } else {
+        this.createWindow()
+        const newWindow = this.mainWindow as BrowserWindow | null;
+        if (newWindow && !newWindow.isDestroyed()) {
+          newWindow.show()
+          newWindow.focus()
+        }
+      }
     }
   }
 
@@ -644,6 +753,16 @@ class ClipDeskApp {
           console.warn('Database not initialized, cannot set setting:', key)
           return { success: false, error: 'Database not initialized' }
         }
+
+        // Handle launch at login setting
+        if (key === 'launchAtLogin') {
+          const shouldLaunchAtLogin = value === 'true';
+          app.setLoginItemSettings({
+            openAtLogin: shouldLaunchAtLogin,
+            openAsHidden: shouldLaunchAtLogin // Start hidden when launching at login
+          });
+        }
+
         await db.setSetting(key, value)
         return { success: true }
       } catch (error) {
@@ -783,6 +902,24 @@ class ClipDeskApp {
     })
   }
 
+  private async initializeLaunchAtLogin(): Promise<void> {
+    try {
+      // Get the stored launch at login preference
+      const launchAtLogin = await db.getSetting('launchAtLogin');
+      const shouldLaunchAtLogin = launchAtLogin === 'true';
+
+      // Apply the setting to the system
+      app.setLoginItemSettings({
+        openAtLogin: shouldLaunchAtLogin,
+        openAsHidden: shouldLaunchAtLogin // Start hidden when launching at login
+      });
+
+      console.log('Launch at login setting applied:', shouldLaunchAtLogin);
+    } catch (error) {
+      console.error('Error initializing launch at login:', error);
+    }
+  }
+
   private async cleanup(): Promise<void> {
     try {
       // Stop clipboard monitoring
@@ -875,10 +1012,11 @@ app.on('will-quit', () => {
 })
 
 // Handle app startup on different platforms
-app.setLoginItemSettings({
-  openAtLogin: true,
-  openAsHidden: true, // Start hidden in system tray
-})
+// Note: Don't force openAtLogin - let user control this via settings
+// app.setLoginItemSettings({
+//   openAtLogin: true,
+//   openAsHidden: true, // Start hidden in system tray
+// })
 
 // Custom app property to track quit state
 declare global {

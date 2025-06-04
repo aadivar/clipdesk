@@ -1018,7 +1018,10 @@ const App: React.FC = () => {
     retentionDays: '30',
     maxHistoryItems: '1000',
     autoStartup: 'true',
-    soundEnabled: 'true'
+    soundEnabled: 'true',
+    runInMenubar: 'true', // Default to true for hybrid mode
+    showInDock: 'false',  // Default to false for hybrid mode
+    launchAtLogin: 'false'
   })
 
   const toggleTheme = () => {
@@ -1048,18 +1051,24 @@ const App: React.FC = () => {
           // Load settings
           if (window.clipdesk) {
             console.log('🔧 Loading settings...')
-            const [retentionDays, maxHistoryItems, autoStartup, soundEnabled] = await Promise.all([
+            const [retentionDays, maxHistoryItems, autoStartup, soundEnabled, runInMenubar, showInDock, launchAtLogin] = await Promise.all([
               window.clipdesk.settings.get('retentionDays'),
               window.clipdesk.settings.get('maxHistoryItems'),
               window.clipdesk.settings.get('autoStartup'),
-              window.clipdesk.settings.get('soundEnabled')
+              window.clipdesk.settings.get('soundEnabled'),
+              window.clipdesk.settings.get('runInMenubar'),
+              window.clipdesk.settings.get('showInDock'),
+              window.clipdesk.settings.get('launchAtLogin')
             ])
 
             setSettings({
               retentionDays: retentionDays || '30',
               maxHistoryItems: maxHistoryItems || '1000',
               autoStartup: autoStartup || 'true',
-              soundEnabled: soundEnabled || 'true'
+              soundEnabled: soundEnabled || 'true',
+              runInMenubar: runInMenubar || 'true',  // Default to true for hybrid mode
+              showInDock: showInDock || 'false',     // Default to false for hybrid mode
+              launchAtLogin: launchAtLogin || 'false'
             })
             console.log('✅ Settings loaded successfully')
           }
@@ -1642,28 +1651,58 @@ const App: React.FC = () => {
                   </SettingsSection>
 
                   <SettingsSection>
-                    <h3>General</h3>
-                    
+                    <h3>App Behavior</h3>
+
                     <SettingsRow>
                       <SettingsLabel>
-                        <div className="label">Auto-start ClipDesk</div>
-                        <div className="description">Launch ClipDesk when you log in</div>
+                        <div className="label">Launch at login</div>
+                        <div className="description">Automatically start ClipDesk when you log in</div>
                       </SettingsLabel>
                       <SettingsControl>
-                        <Toggle 
-                          checked={settings.autoStartup === 'true'}
-                          onChange={(e) => handleSettingChange('autoStartup', e.target.checked ? 'true' : 'false')}
+                        <Toggle
+                          checked={settings.launchAtLogin === 'true'}
+                          onChange={(e) => handleSettingChange('launchAtLogin', e.target.checked ? 'true' : 'false')}
                         />
                       </SettingsControl>
                     </SettingsRow>
-                    
+
+                    <SettingsRow>
+                      <SettingsLabel>
+                        <div className="label">Run in menubar</div>
+                        <div className="description">Keep ClipDesk running in the background when window is closed</div>
+                      </SettingsLabel>
+                      <SettingsControl>
+                        <Toggle
+                          checked={settings.runInMenubar === 'true'}
+                          onChange={(e) => handleSettingChange('runInMenubar', e.target.checked ? 'true' : 'false')}
+                        />
+                      </SettingsControl>
+                    </SettingsRow>
+
+                    <SettingsRow>
+                      <SettingsLabel>
+                        <div className="label">Show in dock</div>
+                        <div className="description">Keep ClipDesk visible in the dock when window is open</div>
+                      </SettingsLabel>
+                      <SettingsControl>
+                        <Toggle
+                          checked={settings.showInDock === 'true'}
+                          onChange={(e) => handleSettingChange('showInDock', e.target.checked ? 'true' : 'false')}
+                        />
+                      </SettingsControl>
+                    </SettingsRow>
+                  </SettingsSection>
+
+                  <SettingsSection>
+                    <h3>General</h3>
+
                     <SettingsRow>
                       <SettingsLabel>
                         <div className="label">Sound effects</div>
                         <div className="description">Play sounds for clipboard events</div>
                       </SettingsLabel>
                       <SettingsControl>
-                        <Toggle 
+                        <Toggle
                           checked={settings.soundEnabled === 'true'}
                           onChange={(e) => handleSettingChange('soundEnabled', e.target.checked ? 'true' : 'false')}
                         />
