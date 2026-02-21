@@ -100,7 +100,7 @@ class AutoUpdaterManager {
         break
       case 1: // View Release Notes
         if (info.releaseNotes) {
-          shell.openExternal(`https://github.com/clipdesk/clipdesk/releases/tag/v${info.version}`)
+          shell.openExternal(`https://github.com/aadivar/clipdesk/releases/tag/v${info.version}`)
         }
         break
       case 2: // Skip This Version

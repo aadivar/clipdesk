@@ -105,7 +105,7 @@ jobs:
           This version includes automatic update checking. The app will notify you when new versions are available.
           
           ### 🐛 Bug Reports
-          Found a bug? Please [open an issue](https://github.com/clipdesk/clipdesk/issues/new).
+          Found a bug? Please [open an issue](https://github.com/aadivar/clipdesk/issues/new).
           EOF
           
           echo "release_notes<<EOF" >> $GITHUB_OUTPUT

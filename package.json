@@ -1,6 +1,6 @@
 {
   "name": "clipdesk",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A beautiful, local-first clipboard manager for Mac, Windows, and Linux inspired by Things app design and pasteapp.io functionality.",
   "main": "dist/main/src/main/index.js",
   "scripts": {
@@ -34,11 +34,11 @@
     "cross-platform"
   ],
   "author": "ClipDesk Team",
-  "license": "Commercial",
+  "license": "MIT",
   "homepage": "https://clipdesk.app",
   "repository": {
     "type": "git",
-    "url": "https://github.com/clipdesk/clipdesk.git"
+    "url": "https://github.com/aadivar/clipdesk.git"
   },
   "build": {
     "appId": "app.clipdesk.desktop",
@@ -58,7 +58,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "clipdesk",
+        "owner": "aadivar",
         "repo": "clipdesk"
       }
     ],

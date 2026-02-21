@@ -34,9 +34,5 @@
     "node_modules",
     "dist",
     "build"
-  ],
-  "references": [
-    { "path": "./tsconfig.main.json" },
-    { "path": "./tsconfig.renderer.json" }
   ]
 } 
